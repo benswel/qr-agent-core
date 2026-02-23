@@ -9,6 +9,13 @@ import { sendError } from "../../shared/errors.js";
  * Public routes (redirect, health, docs, .well-known) are NOT protected.
  */
 async function authPlugin(app: FastifyInstance) {
+  const envKey = process.env.API_KEY;
+  if (envKey) {
+    app.log.info("API_KEY env var is configured (%d chars)", envKey.length);
+  } else {
+    app.log.warn("No API_KEY env var set — only DB-managed keys will work");
+  }
+
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // Public routes — no auth required
     const publicPrefixes = ["/r/", "/i/", "/health", "/documentation", "/.well-known"];
