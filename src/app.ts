@@ -10,6 +10,7 @@ import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { wellKnownRoutes } from "./modules/well-known/well-known.routes.js";
 import { imageRoutes } from "./modules/image/image.routes.js";
 import authPlugin from "./modules/auth/auth.plugin.js";
+import { generateApiKey, listApiKeys } from "./modules/auth/auth.service.js";
 import type { FastifyError } from "fastify";
 import { Errors, sendError } from "./shared/errors.js";
 
@@ -92,6 +93,15 @@ export async function buildApp() {
 
   // Run DB migrations on startup
   runMigrations();
+
+  // Auto-generate an API key on first startup if none exist
+  const existingKeys = listApiKeys();
+  if (existingKeys.length === 0) {
+    const { key } = generateApiKey("auto-generated");
+    console.log(`\n🔑 No API keys found — auto-generated one for you:`);
+    console.log(`   Key: ${key}`);
+    console.log(`   Use: curl -H "X-API-Key: ${key}" ...\n`);
+  }
 
   // Auth — protects /api/* routes, public routes pass through
   await app.register(authPlugin);
