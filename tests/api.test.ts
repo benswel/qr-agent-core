@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getApp, getApiKey, closeApp } from "./setup.js";
+import { getApp, getApiKey, getApiKey2, closeApp } from "./setup.js";
 import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
 let apiKey: string;
+let apiKey2: string;
 let createdShortId: string;
 
 beforeAll(async () => {
   app = await getApp();
   apiKey = getApiKey();
+  apiKey2 = getApiKey2();
 });
 
 afterAll(async () => {
@@ -299,6 +301,144 @@ describe("Image Endpoints", () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+// ─── Multi-Tenant Isolation ────────────────────────────
+
+describe("Multi-Tenant Isolation", () => {
+  let key1ShortId: string;
+  let key2ShortId: string;
+
+  it("key1 creates a QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://tenant1.com", label: "Tenant 1 QR" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    key1ShortId = res.json().short_id;
+  });
+
+  it("key2 creates a QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey2, "content-type": "application/json" },
+      payload: { target_url: "https://tenant2.com", label: "Tenant 2 QR" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    key2ShortId = res.json().short_id;
+  });
+
+  it("key1 can see its own QR code", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${key1ShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().short_id).toBe(key1ShortId);
+  });
+
+  it("key2 cannot see key1's QR code", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${key1ShortId}`,
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("key1 cannot see key2's QR code", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${key2ShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("key2 cannot update key1's QR code", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${key1ShortId}`,
+      headers: { "x-api-key": apiKey2, "content-type": "application/json" },
+      payload: { target_url: "https://hacked.com" },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("key2 cannot delete key1's QR code", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/qr/${key1ShortId}`,
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("key2 cannot access key1's analytics", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${key1ShortId}`,
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("key2 cannot access key1's image via authenticated endpoint", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${key1ShortId}/image`,
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("list only shows own QR codes", async () => {
+    const res1 = await app.inject({
+      method: "GET",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res1.statusCode).toBe(200);
+    const body = res1.json();
+    // key2 should only see its own QR codes
+    const shortIds = body.data.map((qr: { short_id: string }) => qr.short_id);
+    expect(shortIds).toContain(key2ShortId);
+    expect(shortIds).not.toContain(key1ShortId);
+  });
+
+  it("public redirect still works for any QR code (no auth)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${key1ShortId}`,
+    });
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://tenant1.com");
+  });
+
+  it("public image still works for any QR code (no auth)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/i/${key1ShortId}`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/svg+xml");
   });
 });
 

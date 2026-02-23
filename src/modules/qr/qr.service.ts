@@ -1,4 +1,4 @@
-import { eq, sql, count } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
@@ -18,7 +18,7 @@ export interface UpdateQrInput {
   label?: string;
 }
 
-export async function createQrCode(input: CreateQrInput) {
+export async function createQrCode(input: CreateQrInput, apiKeyId: number) {
   const shortId = nanoid(config.shortId.length);
   const format = input.format || "svg";
   const shortUrl = `${config.baseUrl}/r/${shortId}`;
@@ -32,6 +32,7 @@ export async function createQrCode(input: CreateQrInput) {
       targetUrl: input.target_url,
       label: input.label || null,
       format,
+      apiKeyId,
     })
     .returning()
     .get();
@@ -48,11 +49,11 @@ export async function createQrCode(input: CreateQrInput) {
   };
 }
 
-export function getQrCode(shortId: string) {
+export function getQrCode(shortId: string, apiKeyId: number) {
   const row = db
     .select()
     .from(qrCodes)
-    .where(eq(qrCodes.shortId, shortId))
+    .where(and(eq(qrCodes.shortId, shortId), eq(qrCodes.apiKeyId, apiKeyId)))
     .get();
 
   if (!row) return null;
@@ -69,15 +70,20 @@ export function getQrCode(shortId: string) {
   };
 }
 
-export function listQrCodes(limit: number = 20, offset: number = 0) {
+export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: number) {
   const rows = db
     .select()
     .from(qrCodes)
+    .where(eq(qrCodes.apiKeyId, apiKeyId))
     .limit(limit)
     .offset(offset)
     .all();
 
-  const [{ total }] = db.select({ total: count() }).from(qrCodes).all();
+  const [{ total }] = db
+    .select({ total: count() })
+    .from(qrCodes)
+    .where(eq(qrCodes.apiKeyId, apiKeyId))
+    .all();
 
   return {
     data: rows.map((row) => ({
@@ -96,11 +102,11 @@ export function listQrCodes(limit: number = 20, offset: number = 0) {
   };
 }
 
-export function updateQrCode(shortId: string, input: UpdateQrInput) {
+export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: number) {
   const existing = db
     .select()
     .from(qrCodes)
-    .where(eq(qrCodes.shortId, shortId))
+    .where(and(eq(qrCodes.shortId, shortId), eq(qrCodes.apiKeyId, apiKeyId)))
     .get();
 
   if (!existing) return null;
@@ -128,11 +134,11 @@ export function updateQrCode(shortId: string, input: UpdateQrInput) {
   };
 }
 
-export function deleteQrCode(shortId: string): boolean {
+export function deleteQrCode(shortId: string, apiKeyId: number): boolean {
   const existing = db
     .select()
     .from(qrCodes)
-    .where(eq(qrCodes.shortId, shortId))
+    .where(and(eq(qrCodes.shortId, shortId), eq(qrCodes.apiKeyId, apiKeyId)))
     .get();
 
   if (!existing) return false;
@@ -141,11 +147,17 @@ export function deleteQrCode(shortId: string): boolean {
   return true;
 }
 
-export async function getQrImage(shortId: string, formatOverride?: QrFormat) {
+export async function getQrImage(shortId: string, formatOverride?: QrFormat, apiKeyId?: number) {
+  // If apiKeyId is provided, scope by owner (authenticated /api/ route)
+  // If not provided, allow access (public /i/ route)
+  const conditions = apiKeyId !== undefined
+    ? and(eq(qrCodes.shortId, shortId), eq(qrCodes.apiKeyId, apiKeyId))
+    : eq(qrCodes.shortId, shortId);
+
   const row = db
     .select()
     .from(qrCodes)
-    .where(eq(qrCodes.shortId, shortId))
+    .where(conditions)
     .get();
 
   if (!row) return null;

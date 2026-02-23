@@ -11,6 +11,7 @@ process.env.NODE_ENV = "test";
 
 let app: FastifyInstance;
 let testApiKey: string;
+let testApiKey2: string;
 
 export async function getApp() {
   if (!app) {
@@ -22,12 +23,19 @@ export async function getApp() {
 
     const { key } = generateApiKey("test-agent");
     testApiKey = key;
+
+    const { key: key2 } = generateApiKey("test-agent-2");
+    testApiKey2 = key2;
   }
   return app;
 }
 
 export function getApiKey() {
   return testApiKey;
+}
+
+export function getApiKey2() {
+  return testApiKey2;
 }
 
 export async function closeApp() {

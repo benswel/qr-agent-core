@@ -8,3 +8,10 @@ export interface PaginatedResponse<T> {
   offset: number;
   limit: number;
 }
+
+/** Augment Fastify request with apiKeyId for multi-tenant scoping */
+declare module "fastify" {
+  interface FastifyRequest {
+    apiKeyId: number;
+  }
+}

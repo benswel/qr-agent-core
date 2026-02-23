@@ -35,7 +35,7 @@ export async function qrRoutes(app: FastifyInstance) {
         return sendError(reply, 400, Errors.invalidUrl(body.target_url));
       }
 
-      const result = await qrService.createQrCode(body);
+      const result = await qrService.createQrCode(body, request.apiKeyId);
       return reply.status(201).send(result);
     }
   );
@@ -49,12 +49,12 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "List all managed QR codes",
         description:
-          "Returns a paginated list of all QR codes. Use limit and offset query parameters for pagination. Does not include image data — use GET /api/qr/:shortId for full details.",
+          "Returns a paginated list of all QR codes owned by the authenticated API key. Use limit and offset query parameters for pagination. Does not include image data — use GET /api/qr/:shortId for full details.",
       },
     },
     async (request) => {
       const query = request.query as { limit?: number; offset?: number };
-      return qrService.listQrCodes(query.limit, query.offset);
+      return qrService.listQrCodes(query.limit, query.offset, request.apiKeyId);
     }
   );
 
@@ -67,12 +67,12 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "Get a QR code by its short ID",
         description:
-          "Retrieves full details of a QR code including its current target URL and metadata. Does not include image_data — to regenerate the image, create a new QR code.",
+          "Retrieves full details of a QR code owned by the authenticated API key, including its current target URL and metadata. Does not include image_data — to regenerate the image, create a new QR code.",
       },
     },
     async (request, reply) => {
       const { shortId } = request.params as { shortId: string };
-      const result = qrService.getQrCode(shortId);
+      const result = qrService.getQrCode(shortId, request.apiKeyId);
 
       if (!result) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));
@@ -91,7 +91,7 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "Update a QR code's target URL or label",
         description:
-          "Modifies the target_url or label of an existing QR code. This is the core 'dynamic link' feature: the QR image itself doesn't change, but the destination it redirects to does. This is ideal for printed QR codes that need to point to different content over time.",
+          "Modifies the target_url or label of an existing QR code owned by the authenticated API key. This is the core 'dynamic link' feature: the QR image itself doesn't change, but the destination it redirects to does. This is ideal for printed QR codes that need to point to different content over time.",
       },
     },
     async (request, reply) => {
@@ -106,7 +106,7 @@ export async function qrRoutes(app: FastifyInstance) {
         }
       }
 
-      const result = qrService.updateQrCode(shortId, body);
+      const result = qrService.updateQrCode(shortId, body, request.apiKeyId);
 
       if (!result) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));
@@ -125,12 +125,12 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "Delete a QR code and all its analytics",
         description:
-          "Permanently removes a QR code and all associated scan events. The short URL will stop working immediately. This action cannot be undone.",
+          "Permanently removes a QR code owned by the authenticated API key and all associated scan events. The short URL will stop working immediately. This action cannot be undone.",
       },
     },
     async (request, reply) => {
       const { shortId } = request.params as { shortId: string };
-      const deleted = qrService.deleteQrCode(shortId);
+      const deleted = qrService.deleteQrCode(shortId, request.apiKeyId);
 
       if (!deleted) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));
@@ -180,7 +180,7 @@ export async function qrRoutes(app: FastifyInstance) {
       const { shortId } = request.params as { shortId: string };
       const { format } = request.query as { format?: "svg" | "png" };
 
-      const result = await qrService.getQrImage(shortId, format);
+      const result = await qrService.getQrImage(shortId, format, request.apiKeyId);
 
       if (!result) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));

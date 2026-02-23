@@ -1,9 +1,26 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 /**
+ * API keys for agent authentication.
+ * Each key has a label (for the human who created it)
+ * and an optional expiration date.
+ */
+export const apiKeys = sqliteTable("api_keys", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull().unique(),
+  label: text("label").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  expiresAt: text("expires_at"),
+  lastUsedAt: text("last_used_at"),
+});
+
+/**
  * Core table: each row is a "managed QR code".
  * The short_id is the public-facing identifier used in short URLs.
  * target_url can be updated at any time — the QR image stays the same.
+ * apiKeyId tracks which API key owns this QR code (multi-tenant isolation).
  */
 export const qrCodes = sqliteTable("qr_codes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -11,6 +28,7 @@ export const qrCodes = sqliteTable("qr_codes", {
   targetUrl: text("target_url").notNull(),
   label: text("label"),
   format: text("format", { enum: ["svg", "png"] }).notNull().default("svg"),
+  apiKeyId: integer("api_key_id").references(() => apiKeys.id),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -35,22 +53,6 @@ export const scanEvents = sqliteTable("scan_events", {
   userAgent: text("user_agent"),
   referer: text("referer"),
   ip: text("ip"),
-});
-
-/**
- * API keys for agent authentication.
- * Each key has a label (for the human who created it)
- * and an optional expiration date.
- */
-export const apiKeys = sqliteTable("api_keys", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  key: text("key").notNull().unique(),
-  label: text("label").notNull(),
-  createdAt: text("created_at")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  expiresAt: text("expires_at"),
-  lastUsedAt: text("last_used_at"),
 });
 
 export type QrCode = typeof qrCodes.$inferSelect;
