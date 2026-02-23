@@ -43,7 +43,6 @@ export function runMigrations() {
   `);
 
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_qr_codes_short_id ON qr_codes(short_id)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_qr_codes_api_key_id ON qr_codes(api_key_id)`);
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_scan_events_qr_code_id ON scan_events(qr_code_id)`);
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_api_keys_key ON api_keys(key)`);
 
@@ -53,4 +52,7 @@ export function runMigrations() {
   } catch {
     // Column already exists — ignore
   }
+
+  // Create index after ensuring the column exists
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_qr_codes_api_key_id ON qr_codes(api_key_id)`);
 }
