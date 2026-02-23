@@ -29,6 +29,10 @@ async function authPlugin(app: FastifyInstance) {
       });
     }
 
+    // Accept key from API_KEY env var (for production without DB-managed keys)
+    const envKey = process.env.API_KEY;
+    if (envKey && apiKey === envKey) return;
+
     if (!validateApiKey(apiKey)) {
       return sendError(reply, 403, {
         error: "Invalid or expired API key.",
