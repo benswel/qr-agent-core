@@ -1,0 +1,16 @@
+services:
+  qr-agent-core:
+    build: .
+    ports:
+      - "3100:3100"
+    volumes:
+      - qr-data:/app/data
+    environment:
+      - PORT=3100
+      - HOST=0.0.0.0
+      - BASE_URL=http://localhost:3100
+      - DATABASE_URL=/app/data/qr-agent.db
+    restart: unless-stopped
+
+volumes:
+  qr-data:

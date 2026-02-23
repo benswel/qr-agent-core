@@ -1,0 +1,52 @@
+{
+  "name": "qr-agent-core",
+  "version": "0.1.0",
+  "description": "QR-as-a-Service infrastructure for AI agents — generate, manage, and track QR codes programmatically.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "mcp": "tsx src/mcp/server.ts",
+    "key:create": "tsx src/cli/create-key.ts",
+    "key:list": "tsx src/cli/list-keys.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "qr-code",
+    "ai-agent",
+    "mcp",
+    "fastify",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.1",
+    "fastify": "^5.7.4",
+    "fastify-plugin": "^5.1.0",
+    "nanoid": "^3.3.11",
+    "pino-pretty": "^13.1.3",
+    "qrcode": "^1.5.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.3.0",
+    "@types/qrcode": "^1.5.6",
+    "drizzle-kit": "^0.31.9",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
