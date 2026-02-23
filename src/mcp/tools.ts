@@ -1,10 +1,9 @@
 import { z } from "zod";
-import * as qrService from "../modules/qr/qr.service.js";
+import { apiRequest } from "./api-client.js";
 
 /**
  * MCP tool definitions for QR Agent Core.
- * Each tool maps to a service function and is described
- * in a way that helps LLMs understand when and how to use it.
+ * Each tool calls the production HTTP API.
  */
 export const tools = {
   create_qr_code: {
@@ -27,7 +26,7 @@ export const tools = {
         ),
     }),
     handler: async (input: { target_url: string; label?: string; format?: "svg" | "png" }) => {
-      return await qrService.createQrCode(input);
+      return apiRequest("/api/qr", { method: "POST", body: input });
     },
   },
 
@@ -38,11 +37,7 @@ export const tools = {
       short_id: z.string().describe("The short ID of the QR code to look up."),
     }),
     handler: async (input: { short_id: string }) => {
-      const result = qrService.getQrCode(input.short_id);
-      if (!result) {
-        return { error: "QR code not found", short_id: input.short_id };
-      }
-      return result;
+      return apiRequest(`/api/qr/${input.short_id}`);
     },
   },
 
@@ -61,14 +56,10 @@ export const tools = {
         .describe("Optionally update the label too."),
     }),
     handler: async (input: { short_id: string; target_url: string; label?: string }) => {
-      const result = qrService.updateQrCode(input.short_id, {
-        target_url: input.target_url,
-        label: input.label,
+      return apiRequest(`/api/qr/${input.short_id}`, {
+        method: "PATCH",
+        body: { target_url: input.target_url, label: input.label },
       });
-      if (!result) {
-        return { error: "QR code not found", short_id: input.short_id };
-      }
-      return result;
     },
   },
 
@@ -80,7 +71,7 @@ export const tools = {
       offset: z.number().min(0).default(0).describe("Number of results to skip."),
     }),
     handler: async (input: { limit: number; offset: number }) => {
-      return qrService.listQrCodes(input.limit, input.offset);
+      return apiRequest("/api/qr", { query: { limit: input.limit, offset: input.offset } });
     },
   },
 
@@ -91,11 +82,18 @@ export const tools = {
       short_id: z.string().describe("The short ID of the QR code to delete."),
     }),
     handler: async (input: { short_id: string }) => {
-      const deleted = qrService.deleteQrCode(input.short_id);
-      if (!deleted) {
-        return { error: "QR code not found", short_id: input.short_id };
-      }
-      return { deleted: true, short_id: input.short_id };
+      return apiRequest(`/api/qr/${input.short_id}`, { method: "DELETE" });
+    },
+  },
+
+  get_qr_analytics: {
+    description:
+      "Get scan analytics for a QR code. Returns total scan count and recent scan events with timestamps and user agents.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the QR code to get analytics for."),
+    }),
+    handler: async (input: { short_id: string }) => {
+      return apiRequest(`/api/analytics/${input.short_id}`);
     },
   },
 };

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "qr-agent-core": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/server.ts"],
+      "cwd": "/Users/benjaminturc/Library/CloudStorage/GoogleDrive-benjamin@swel.fr/Mon Drive/Claude Code/qr-agent-core"
+    }
+  }
+}
