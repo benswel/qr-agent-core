@@ -1,0 +1,38 @@
+{
+  "name": "qr-for-agent",
+  "version": "0.1.0",
+  "description": "MCP server for dynamic QR codes — create, track, and update QR codes from any AI agent",
+  "type": "module",
+  "bin": {
+    "qr-for-agent": "dist/server.js"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "tsc"
+  },
+  "keywords": [
+    "mcp",
+    "qr-code",
+    "ai-agent",
+    "dynamic-qr",
+    "model-context-protocol",
+    "claude",
+    "cursor"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "zod": "^4.3.6",
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

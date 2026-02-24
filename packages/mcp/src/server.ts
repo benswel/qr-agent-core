@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { tools } from "./tools.js";
@@ -5,14 +6,14 @@ import { tools } from "./tools.js";
 /**
  * Standalone MCP server for QR Agent Core.
  *
- * Run with: npx tsx src/mcp/server.ts
+ * Run with: npx qr-for-agent
  *
  * This exposes all QR management tools via the Model Context Protocol,
  * allowing agents like Claude to call them directly as tools
  * rather than making HTTP requests.
  */
 const server = new McpServer({
-  name: "qr-agent-core",
+  name: "qr-for-agent",
   version: "0.1.0",
 });
 

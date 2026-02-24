@@ -10,7 +10,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "mcp": "tsx src/mcp/server.ts",
     "key:create": "tsx src/cli/create-key.ts",
     "key:list": "tsx src/cli/list-keys.ts",
     "test": "vitest run",
