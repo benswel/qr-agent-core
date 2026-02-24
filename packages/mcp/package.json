@@ -1,7 +1,13 @@
 {
   "name": "qr-for-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.github.benswel/qr-for-agent",
   "description": "MCP server for dynamic QR codes — create, track, and update QR codes from any AI agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benswel/qr-agent-core.git",
+    "directory": "packages/mcp"
+  },
   "type": "module",
   "bin": {
     "qr-for-agent": "dist/server.js"

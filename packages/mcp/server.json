@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.benswel/qr-for-agent",
+  "title": "QR for Agent",
+  "description": "Dynamic QR code MCP server for AI agents — create, update, track QR codes",
+  "repository": {
+    "url": "https://github.com/benswel/qr-agent-core",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "qr-for-agent",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "API_KEY",
+          "description": "Your QR for Agent API key",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "BASE_URL",
+          "description": "API base URL (default: https://qrforagent.com)",
+          "isRequired": false,
+          "default": "https://qrforagent.com"
+        }
+      ]
+    }
+  ]
+}

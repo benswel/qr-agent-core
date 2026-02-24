@@ -6,3 +6,6 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# MCP registry auth tokens
+.mcpregistry_*
