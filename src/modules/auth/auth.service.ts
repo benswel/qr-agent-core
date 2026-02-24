@@ -7,12 +7,12 @@ const { apiKeys } = schema;
 const KEY_PREFIX = "qr_";
 const KEY_LENGTH = 32;
 
-export function generateApiKey(label: string): { key: string; id: number; label: string } {
+export function generateApiKey(label: string, email?: string): { key: string; id: number; label: string } {
   const key = `${KEY_PREFIX}${nanoid(KEY_LENGTH)}`;
 
   const inserted = db
     .insert(apiKeys)
-    .values({ key, label })
+    .values({ key, label, ...(email ? { email } : {}) })
     .returning()
     .get();
 

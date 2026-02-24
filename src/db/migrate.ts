@@ -55,4 +55,11 @@ export function runMigrations() {
 
   // Create index after ensuring the column exists
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_qr_codes_api_key_id ON qr_codes(api_key_id)`);
+
+  // Migration: add email column to api_keys if missing (existing DBs)
+  try {
+    db.run(sql`ALTER TABLE api_keys ADD COLUMN email TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

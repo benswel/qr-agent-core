@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { config } from "./config/index.js";
@@ -10,6 +11,7 @@ import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { wellKnownRoutes } from "./modules/well-known/well-known.routes.js";
 import { imageRoutes } from "./modules/image/image.routes.js";
 import authPlugin from "./modules/auth/auth.plugin.js";
+import { authRoutes } from "./modules/auth/auth.routes.js";
 import { generateApiKey, listApiKeys } from "./modules/auth/auth.service.js";
 import type { FastifyError } from "fastify";
 import { Errors, sendError } from "./shared/errors.js";
@@ -31,6 +33,9 @@ export async function buildApp() {
 
   // CORS — open by default for agent access
   await app.register(cors, { origin: true });
+
+  // Rate limiting — global baseline, individual routes can override
+  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
 
   // Swagger / OpenAPI — the self-documentation layer
   await app.register(swagger, {
@@ -75,6 +80,11 @@ export async function buildApp() {
             "The redirect endpoint that QR codes point to. Agents should not call this directly.",
         },
         {
+          name: "Auth",
+          description:
+            "Self-service API key registration. Obtain an API key by providing your email address — no manual approval needed.",
+        },
+        {
           name: "Discovery",
           description:
             "Machine-readable manifests for AI agent and crawler discovery (.well-known endpoints).",
@@ -102,6 +112,9 @@ export async function buildApp() {
     console.log(`   Key: ${key}`);
     console.log(`   Use: curl -H "X-API-Key: ${key}" ...\n`);
   }
+
+  // Self-service API key registration (public, rate-limited)
+  await app.register(authRoutes);
 
   // Auth — protects /api/* routes, public routes pass through
   await app.register(authPlugin);

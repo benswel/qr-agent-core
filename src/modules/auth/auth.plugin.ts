@@ -25,7 +25,7 @@ async function authPlugin(app: FastifyInstance) {
 
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // Public routes — no auth required
-    const publicPrefixes = ["/r/", "/i/", "/health", "/documentation", "/.well-known"];
+    const publicPrefixes = ["/r/", "/i/", "/health", "/documentation", "/.well-known", "/api/register"];
     const isPublic = publicPrefixes.some((p) => request.url.startsWith(p));
 
     if (isPublic) return;
