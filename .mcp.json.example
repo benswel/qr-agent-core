@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "qr-for-agent": {
+      "command": "npx",
+      "args": ["-y", "qr-for-agent"],
+      "env": {
+        "API_KEY": "your-api-key",
+        "BASE_URL": "https://your-instance.example.com"
+      }
+    }
+  }
+}
