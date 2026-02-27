@@ -21,7 +21,7 @@ QR Agent Core is a **QR-as-a-Service API** built for AI agents. It lets agents c
 src/
 ├── server.ts              # Entry point — starts Fastify on configured port
 ├── app.ts                 # App builder: CORS, Swagger, auth plugin, route registration
-├── config/index.ts        # Env vars: PORT, HOST, BASE_URL, DATABASE_URL, SHORT_ID_LENGTH
+├── config/index.ts        # Env vars: PORT, HOST, BASE_URL, DATABASE_URL, SHORT_ID_LENGTH, ADMIN_SECRET
 ├── db/
 │   ├── schema.ts          # Drizzle schema: api_keys, qr_codes, scan_events
 │   ├── index.ts           # better-sqlite3 + drizzle-orm init (WAL mode)
@@ -50,7 +50,7 @@ packages/
 - **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (68 integration tests)
+- **Tests:** Vitest (72 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -110,6 +110,10 @@ npm run key:list       # List API keys
 - `GET /api/usage` — current usage and quota for authenticated key
 - `POST /api/waitlist` — join Pro plan waitlist (public, rate-limited)
 
+**Admin** (`X-Admin-Secret` header required):
+- `GET /api/admin/keys` — list all registered API keys
+- `GET /api/admin/waitlist` — list all Pro waitlist entries
+
 **Public** (no auth):
 - `GET /r/:shortId` — redirect (records scan)
 - `GET /i/:shortId` — serve QR image
@@ -125,6 +129,7 @@ npm run key:list       # List API keys
 | `BASE_URL` | `http://localhost:3100` | Public URL for short links |
 | `DATABASE_URL` | `./data/qr-agent.db` | SQLite file path |
 | `SHORT_ID_LENGTH` | `8` | Short ID length |
+| `ADMIN_SECRET` | *(none)* | Secret for admin endpoints (`X-Admin-Secret` header) |
 
 ## Conventions
 
