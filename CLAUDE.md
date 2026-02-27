@@ -50,7 +50,7 @@ packages/
 - **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (65 integration tests)
+- **Tests:** Vitest (68 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -91,6 +91,7 @@ npm run key:list       # List API keys
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |
+| `pro_waitlist` | Email collection for Pro plan launch notification |
 
 ## API endpoints
 
@@ -107,6 +108,7 @@ npm run key:list       # List API keys
 - `DELETE /api/webhooks/:id` — delete webhook
 - `POST /api/register` — self-service API key registration (rate-limited, public)
 - `GET /api/usage` — current usage and quota for authenticated key
+- `POST /api/waitlist` — join Pro plan waitlist (public, rate-limited)
 
 **Public** (no auth):
 - `GET /r/:shortId` — redirect (records scan)
