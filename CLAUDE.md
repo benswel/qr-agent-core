@@ -5,6 +5,8 @@
 **Before starting any work**, read the project status memory file to get up to speed on what's been done and what's pending:
 `~/.claude/projects/-Users-benjaminturc-Library-CloudStorage-GoogleDrive-benjamin-swel-fr-Mon-Drive-Claude-Code/memory/qr-for-agent-status.md`
 
+**After pushing new features**, update that same memory file: move completed items, add new TODOs, bump versions if applicable.
+
 ## What is this project?
 
 QR Agent Core is a **QR-as-a-Service API** built for AI agents. It lets agents create, update, and track dynamic QR codes programmatically. The QR image never changes — but its destination URL can be retargeted at any time.
