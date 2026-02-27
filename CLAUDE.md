@@ -20,7 +20,7 @@ src/
 │   ├── index.ts           # better-sqlite3 + drizzle-orm init (WAL mode)
 │   └── migrate.ts         # Auto-migration on startup
 ├── shared/
-│   ├── types.ts           # QrFormat, PaginatedResponse, Fastify augmentation
+│   ├── types.ts           # QrFormat, PaginatedResponse, Plan, PLAN_LIMITS, Fastify augmentation
 │   └── errors.ts          # Structured errors with code + hint (agent-friendly)
 ├── modules/
 │   ├── auth/              # X-API-Key auth plugin + key management
@@ -43,7 +43,7 @@ packages/
 - **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (54 integration tests)
+- **Tests:** Vitest (65 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -71,12 +71,15 @@ npm run key:list       # List API keys
 - **Webhook security:** HMAC-SHA256 signatures on all webhook deliveries. Secret only returned at creation time.
 - **Public vs authenticated:** `/r/`, `/i/`, `/health`, `/.well-known` are public. `/api/*` requires auth.
 - **MCP server is standalone:** The `packages/mcp/` package is a thin HTTP client. It doesn't import API code.
+- **Plan-based quotas:** API keys have a `plan` column (free/pro). Limits defined in `PLAN_LIMITS` (shared/types.ts). Free: 10 QR, 1K scans/month, 1 webhook. Pro: unlimited.
+- **Scan grace period:** 3 tiers — normal (0→limit), grace (limit→limit+100, still recorded), hard cap (>limit+100, redirect works but scan not recorded). Redirect `/r/:shortId` NEVER blocks.
+- **Self-service registration:** `POST /api/register` creates API key with email. Rate-limited to 3/hour/IP.
 
 ## Database tables
 
 | Table | Purpose |
 |-------|---------|
-| `api_keys` | Key storage with label, expiration, last-used tracking |
+| `api_keys` | Key storage with label, email, plan (free/pro), expiration, last-used tracking |
 | `qr_codes` | QR metadata, target URLs, format, style_options (JSON), tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
@@ -95,6 +98,8 @@ npm run key:list       # List API keys
 - `POST /api/webhooks` — register webhook endpoint (returns HMAC secret)
 - `GET /api/webhooks` — list webhooks
 - `DELETE /api/webhooks/:id` — delete webhook
+- `POST /api/register` — self-service API key registration (rate-limited, public)
+- `GET /api/usage` — current usage and quota for authenticated key
 
 **Public** (no auth):
 - `GET /r/:shortId` — redirect (records scan)
