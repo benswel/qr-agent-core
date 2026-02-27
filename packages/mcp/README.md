@@ -65,16 +65,36 @@ Add to `.cursor/mcp.json` in your project:
 
 ## Tools
 
-The server exposes 6 tools:
+The server exposes 9 tools:
+
+### QR Code Management
 
 | Tool                    | Description                                                                 |
 | ----------------------- | --------------------------------------------------------------------------- |
-| `create_qr_code`       | Create a new dynamic QR code pointing to a target URL (SVG or PNG)          |
+| `create_qr_code`       | Create a custom QR code with styling options (colors, dot/corner shapes, logo) |
 | `get_qr_code`          | Retrieve details of an existing QR code by short ID                         |
 | `update_qr_destination`| Change where a QR code redirects — the image stays the same                 |
 | `list_qr_codes`        | List all QR codes with pagination                                           |
 | `delete_qr_code`       | Permanently delete a QR code and its analytics                              |
 | `get_qr_analytics`     | Get scan count and recent scan events for a QR code                         |
+
+### Webhooks
+
+| Tool                    | Description                                                                 |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `create_webhook`       | Register an endpoint to receive real-time scan notifications (HMAC-signed)  |
+| `list_webhooks`        | List all registered webhook endpoints                                       |
+| `delete_webhook`       | Remove a webhook endpoint                                                   |
+
+### Custom QR Styling
+
+The `create_qr_code` tool supports these styling options:
+
+- **Colors:** `foreground_color`, `background_color` (hex)
+- **Dot styles:** `square`, `rounded`, `dots`, `classy-rounded`
+- **Corner styles:** `square`, `extra-rounded`, `dot`
+- **Logo:** `logo_url` (URL or data:base64), `logo_size` (0.15-0.3)
+- **Size:** `width` (200-2000px), `margin` (0-10), `error_correction` (L/M/Q/H)
 
 ## How It Works
 
