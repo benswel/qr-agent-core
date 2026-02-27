@@ -108,4 +108,13 @@ export function runMigrations() {
   } catch {
     // Column already exists — ignore
   }
+
+  // Create pro_waitlist table
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS pro_waitlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL
+    )
+  `);
 }

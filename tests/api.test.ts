@@ -927,3 +927,41 @@ describe("Scan Limit — Redirect Always Works", () => {
     expect(res.statusCode).toBe(302);
   });
 });
+
+// ============================================================
+// Pro Waitlist
+// ============================================================
+
+describe("Pro Waitlist", () => {
+  it("should accept a valid email", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/waitlist",
+      payload: { email: "waitlist@example.com" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().message).toContain("on the list");
+  });
+
+  it("should return 200 for duplicate email", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/waitlist",
+      payload: { email: "waitlist@example.com" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().message).toContain("already on the list");
+  });
+
+  it("should reject invalid email", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/waitlist",
+      payload: { email: "not-an-email" },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+});
