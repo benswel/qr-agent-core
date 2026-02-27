@@ -11,4 +11,5 @@ export const config = {
   shortId: {
     length: parseInt(process.env.SHORT_ID_LENGTH || "8", 10),
   },
+  adminSecret: process.env.ADMIN_SECRET || "",
 } as const;

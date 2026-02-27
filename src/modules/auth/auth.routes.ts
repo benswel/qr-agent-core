@@ -5,8 +5,9 @@ import { generateApiKey } from "./auth.service.js";
 import { sendError } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 import { db, schema } from "../../db/index.js";
+import { config } from "../../config/index.js";
 
-const { qrCodes, scanEvents, webhooks, proWaitlist } = schema;
+const { apiKeys, qrCodes, scanEvents, webhooks, proWaitlist } = schema;
 
 const registerBodySchema = z.object({
   email: z.string().email(),
@@ -264,6 +265,66 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(201).send({
         message: "You're on the list! We'll notify you when Pro launches.",
       });
+    }
+  );
+
+  // --- Admin endpoints (protected by ADMIN_SECRET) ---
+
+  function checkAdminSecret(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) {
+    if (!config.adminSecret) {
+      return sendError(reply, 503, {
+        error: "Admin endpoints are not configured.",
+        code: "ADMIN_NOT_CONFIGURED",
+        hint: "Set the ADMIN_SECRET environment variable on the server.",
+      });
+    }
+
+    const provided = request.headers["x-admin-secret"];
+    if (!provided || provided !== config.adminSecret) {
+      return sendError(reply, 403, {
+        error: "Invalid admin secret.",
+        code: "ADMIN_FORBIDDEN",
+        hint: "Provide the correct value in the X-Admin-Secret header.",
+      });
+    }
+  }
+
+  app.get(
+    "/api/admin/keys",
+    { schema: { tags: ["Admin"], summary: "List all registered API keys", hide: true } },
+    async (request, reply) => {
+      const denied = checkAdminSecret(request, reply);
+      if (denied) return denied;
+
+      const keys = db
+        .select({
+          id: apiKeys.id,
+          label: apiKeys.label,
+          email: apiKeys.email,
+          plan: apiKeys.plan,
+          createdAt: apiKeys.createdAt,
+          lastUsedAt: apiKeys.lastUsedAt,
+        })
+        .from(apiKeys)
+        .all();
+
+      return { count: keys.length, keys };
+    }
+  );
+
+  app.get(
+    "/api/admin/waitlist",
+    { schema: { tags: ["Admin"], summary: "List all Pro waitlist entries", hide: true } },
+    async (request, reply) => {
+      const denied = checkAdminSecret(request, reply);
+      if (denied) return denied;
+
+      const entries = db
+        .select()
+        .from(proWaitlist)
+        .all();
+
+      return { count: entries.length, entries };
     }
   );
 }

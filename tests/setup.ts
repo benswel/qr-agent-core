@@ -9,6 +9,9 @@ process.env.DATABASE_URL = testDbPath;
 // Disable pino-pretty in tests
 process.env.NODE_ENV = "test";
 
+// Admin secret for admin endpoint tests
+process.env.ADMIN_SECRET = "test-admin-secret";
+
 let app: FastifyInstance;
 let testApiKey: string;
 let testApiKey2: string;

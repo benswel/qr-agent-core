@@ -965,3 +965,57 @@ describe("Pro Waitlist", () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+// ============================================================
+// Admin Endpoints
+// ============================================================
+
+describe("Admin Endpoints", () => {
+  it("should reject requests without admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/keys",
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("ADMIN_FORBIDDEN");
+  });
+
+  it("should reject requests with wrong admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/keys",
+      headers: { "x-admin-secret": "wrong-secret" },
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("should list API keys with correct admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/keys",
+      headers: { "x-admin-secret": "test-admin-secret" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.count).toBeGreaterThanOrEqual(3); // test-agent, test-agent-2, test-free-agent
+    expect(body.keys[0]).toHaveProperty("email");
+    expect(body.keys[0]).toHaveProperty("plan");
+    expect(body.keys[0]).not.toHaveProperty("key"); // key should not be exposed
+  });
+
+  it("should list waitlist entries with correct admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/waitlist",
+      headers: { "x-admin-secret": "test-admin-secret" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.count).toBeGreaterThanOrEqual(1); // waitlist@example.com from earlier test
+    expect(body.entries[0]).toHaveProperty("email");
+  });
+});
