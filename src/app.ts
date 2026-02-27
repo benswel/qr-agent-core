@@ -10,6 +10,7 @@ import { redirectRoutes } from "./modules/redirect/redirect.routes.js";
 import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { wellKnownRoutes } from "./modules/well-known/well-known.routes.js";
 import { imageRoutes } from "./modules/image/image.routes.js";
+import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
 import authPlugin from "./modules/auth/auth.plugin.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { generateApiKey, listApiKeys } from "./modules/auth/auth.service.js";
@@ -85,6 +86,11 @@ export async function buildApp() {
             "Self-service API key registration. Obtain an API key by providing your email address — no manual approval needed.",
         },
         {
+          name: "Webhooks",
+          description:
+            "Register webhook endpoints to receive real-time notifications when QR codes are scanned. Each webhook receives signed POST requests with event data.",
+        },
+        {
           name: "Discovery",
           description:
             "Machine-readable manifests for AI agent and crawler discovery (.well-known endpoints).",
@@ -124,6 +130,7 @@ export async function buildApp() {
   await app.register(redirectRoutes);
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(imageRoutes);
+  await app.register(webhooksRoutes, { prefix: "/api/webhooks" });
   await app.register(wellKnownRoutes);
 
   // Global error handler — agent-friendly errors

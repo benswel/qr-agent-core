@@ -62,4 +62,43 @@ export function runMigrations() {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: add style_options column to qr_codes if missing
+  try {
+    db.run(sql`ALTER TABLE qr_codes ADD COLUMN style_options TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Create webhooks table
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      events TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_webhooks_api_key_id ON webhooks(api_key_id)`);
+
+  // Create webhook_deliveries table
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+      event TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL,
+      response_code INTEGER,
+      error_message TEXT,
+      delivered_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_id ON webhook_deliveries(webhook_id)`);
 }

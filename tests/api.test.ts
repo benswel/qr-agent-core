@@ -442,6 +442,286 @@ describe("Multi-Tenant Isolation", () => {
   });
 });
 
+// ─── Custom QR Styling ────────────────────────────────
+
+describe("Custom QR Code Styling", () => {
+  it("creates QR with custom colors", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://styled.com",
+        foreground_color: "#4F46E5",
+        background_color: "#F9FAFB",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<svg");
+    expect(body.image_data).toContain("#4F46E5");
+    expect(body.image_data).toContain("#F9FAFB");
+  });
+
+  it("creates QR with rounded dots", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://rounded.com",
+        dot_style: "rounded",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<svg");
+    // Rounded dots use rx attribute
+    expect(body.image_data).toContain("rx=");
+  });
+
+  it("creates QR with dot circles", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://dots.com",
+        dot_style: "dots",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<circle");
+  });
+
+  it("creates QR with circular corner style", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://dotcorners.com",
+        corner_style: "dot",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    // Dot corners render as <circle>
+    expect(body.image_data).toContain("<circle");
+  });
+
+  it("creates QR with custom width", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://bigqr.com",
+        width: 800,
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain('width="800"');
+    expect(body.image_data).toContain('height="800"');
+  });
+
+  it("creates styled PNG QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://styledpng.com",
+        format: "png",
+        foreground_color: "#FF0000",
+        dot_style: "rounded",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.format).toBe("png");
+    expect(body.image_data).toContain("data:image/png;base64,");
+  });
+
+  it("backward compatible — no style options works", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://classic.com" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<svg");
+    expect(body.short_id).toBeTruthy();
+  });
+
+  it("regenerates styled QR at /i/ endpoint", async () => {
+    // Create a styled QR first
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://regen.com",
+        foreground_color: "#10B981",
+        dot_style: "dots",
+      },
+    });
+
+    const shortId = createRes.json().short_id;
+
+    // Fetch via public /i/ endpoint
+    const imgRes = await app.inject({
+      method: "GET",
+      url: `/i/${shortId}`,
+    });
+
+    expect(imgRes.statusCode).toBe(200);
+    expect(imgRes.body).toContain("#10B981");
+    expect(imgRes.body).toContain("<circle");
+  });
+});
+
+// ─── Webhooks ─────────────────────────────────────────
+
+describe("Webhooks CRUD", () => {
+  let webhookId: number;
+
+  it("creates a webhook", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        url: "https://example.com/webhook",
+        events: ["qr.scanned"],
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.id).toBeTruthy();
+    expect(body.url).toBe("https://example.com/webhook");
+    expect(body.secret).toBeTruthy();
+    expect(body.secret.length).toBe(32);
+    expect(body.events).toEqual(["qr.scanned"]);
+    expect(body.is_active).toBe(true);
+    expect(body.created_at).toBeTruthy();
+
+    webhookId = body.id;
+  });
+
+  it("creates webhook with default events", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { url: "https://example.com/webhook2" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().events).toEqual(["qr.scanned"]);
+  });
+
+  it("rejects invalid webhook URL", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { url: "not-a-url" },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("INVALID_WEBHOOK_URL");
+  });
+
+  it("lists webhooks", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.data).toBeInstanceOf(Array);
+    expect(body.data.length).toBeGreaterThanOrEqual(1);
+    expect(body.total).toBeGreaterThanOrEqual(1);
+    // Secret should NOT be in list response
+    expect(body.data[0].secret).toBeUndefined();
+  });
+
+  it("deletes a webhook", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/webhooks/${webhookId}`,
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().deleted).toBe(true);
+  });
+
+  it("returns 404 for non-existent webhook", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/webhooks/99999",
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("WEBHOOK_NOT_FOUND");
+  });
+});
+
+describe("Webhook Multi-Tenant Isolation", () => {
+  let key1WebhookId: number;
+
+  it("key1 creates a webhook", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { url: "https://tenant1.com/hook" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    key1WebhookId = res.json().id;
+  });
+
+  it("key2 cannot see key1's webhooks", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const ids = res.json().data.map((w: { id: number }) => w.id);
+    expect(ids).not.toContain(key1WebhookId);
+  });
+
+  it("key2 cannot delete key1's webhook", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/webhooks/${key1WebhookId}`,
+      headers: { "x-api-key": apiKey2 },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 // ─── Delete ────────────────────────────────────────────
 
 describe("QR Code Deletion", () => {

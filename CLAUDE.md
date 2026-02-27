@@ -24,9 +24,10 @@ src/
 │   └── errors.ts          # Structured errors with code + hint (agent-friendly)
 ├── modules/
 │   ├── auth/              # X-API-Key auth plugin + key management
-│   ├── qr/                # CRUD routes, service, schemas, renderer (SVG/PNG)
-│   ├── redirect/          # GET /r/:shortId — public redirect + scan recording
+│   ├── qr/                # CRUD routes, service, schemas, custom SVG renderer
+│   ├── redirect/          # GET /r/:shortId — public redirect + scan recording + webhook dispatch
 │   ├── analytics/         # GET /api/analytics/:shortId — scan stats
+│   ├── webhooks/          # Webhook CRUD + HMAC delivery + delivery logging
 │   ├── image/             # GET /i/:shortId — public QR image (cacheable)
 │   └── well-known/        # /.well-known/ai-plugin.json + mcp.json
 ├── cli/                   # key:create, key:list scripts
@@ -39,10 +40,10 @@ packages/
 - **Runtime:** Node.js + TypeScript (ES2022, ESM)
 - **Framework:** Fastify 5
 - **Database:** SQLite via better-sqlite3 + Drizzle ORM
-- **QR generation:** `qrcode` npm package (SVG + PNG)
+- **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (37+ integration tests)
+- **Tests:** Vitest (54 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -65,6 +66,9 @@ npm run key:list       # List API keys
 - **Agent-friendly errors:** Every error has `{ error, code, hint }` — the hint tells agents how to fix the issue.
 - **Dynamic links:** The QR image encodes the short URL (`/r/:shortId`), not the target. Changing target = same QR.
 - **Fire-and-forget analytics:** Scan recording doesn't block the redirect response.
+- **Fire-and-forget webhooks:** Webhook dispatch on scan is async, never blocks redirect.
+- **Custom QR rendering:** Custom SVG renderer with dot styles (square, rounded, dots, classy-rounded), corner styles (square, extra-rounded, dot), colors, logo embedding. Style options stored as JSON in DB for regeneration.
+- **Webhook security:** HMAC-SHA256 signatures on all webhook deliveries. Secret only returned at creation time.
 - **Public vs authenticated:** `/r/`, `/i/`, `/health`, `/.well-known` are public. `/api/*` requires auth.
 - **MCP server is standalone:** The `packages/mcp/` package is a thin HTTP client. It doesn't import API code.
 
@@ -73,19 +77,24 @@ npm run key:list       # List API keys
 | Table | Purpose |
 |-------|---------|
 | `api_keys` | Key storage with label, expiration, last-used tracking |
-| `qr_codes` | QR metadata, target URLs, format, tenant isolation via `api_key_id` |
+| `qr_codes` | QR metadata, target URLs, format, style_options (JSON), tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
+| `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
+| `webhook_deliveries` | Delivery log: status, response code, error messages |
 
 ## API endpoints
 
 **Authenticated** (`X-API-Key` required):
-- `POST /api/qr` — create QR code
+- `POST /api/qr` — create QR code (with optional style: colors, dot_style, corner_style, logo_url)
 - `GET /api/qr` — list (paginated)
 - `GET /api/qr/:shortId` — get details
 - `PATCH /api/qr/:shortId` — update target/label
 - `DELETE /api/qr/:shortId` — delete + cascade analytics
-- `GET /api/qr/:shortId/image` — download image
+- `GET /api/qr/:shortId/image` — download image (regenerated with stored style)
 - `GET /api/analytics/:shortId` — scan stats
+- `POST /api/webhooks` — register webhook endpoint (returns HMAC secret)
+- `GET /api/webhooks` — list webhooks
+- `DELETE /api/webhooks/:id` — delete webhook
 
 **Public** (no auth):
 - `GET /r/:shortId` — redirect (records scan)

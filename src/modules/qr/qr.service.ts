@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
-import type { QrFormat } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions } from "../../shared/types.js";
 
 const { qrCodes } = schema;
 
@@ -11,6 +11,15 @@ export interface CreateQrInput {
   target_url: string;
   label?: string;
   format?: QrFormat;
+  foreground_color?: string;
+  background_color?: string;
+  width?: number;
+  margin?: number;
+  error_correction?: "L" | "M" | "Q" | "H";
+  dot_style?: string;
+  corner_style?: string;
+  logo_url?: string;
+  logo_size?: number;
 }
 
 export interface UpdateQrInput {
@@ -18,12 +27,30 @@ export interface UpdateQrInput {
   label?: string;
 }
 
+function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
+  const style: QrStyleOptions = {};
+  let hasStyle = false;
+
+  if (input.foreground_color) { style.foreground_color = input.foreground_color; hasStyle = true; }
+  if (input.background_color) { style.background_color = input.background_color; hasStyle = true; }
+  if (input.width) { style.width = input.width; hasStyle = true; }
+  if (input.margin !== undefined) { style.margin = input.margin; hasStyle = true; }
+  if (input.error_correction) { style.error_correction = input.error_correction; hasStyle = true; }
+  if (input.dot_style) { style.dot_style = input.dot_style as QrStyleOptions["dot_style"]; hasStyle = true; }
+  if (input.corner_style) { style.corner_style = input.corner_style as QrStyleOptions["corner_style"]; hasStyle = true; }
+  if (input.logo_url) { style.logo_url = input.logo_url; hasStyle = true; }
+  if (input.logo_size) { style.logo_size = input.logo_size; hasStyle = true; }
+
+  return hasStyle ? style : undefined;
+}
+
 export async function createQrCode(input: CreateQrInput, apiKeyId: number) {
   const shortId = nanoid(config.shortId.length);
   const format = input.format || "svg";
   const shortUrl = `${config.baseUrl}/r/${shortId}`;
 
-  const imageData = await renderQrCode(shortUrl, format);
+  const styleOptions = buildStyleOptions(input);
+  const imageData = await renderQrCode(shortUrl, format, styleOptions);
 
   const inserted = db
     .insert(qrCodes)
@@ -32,6 +59,7 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number) {
       targetUrl: input.target_url,
       label: input.label || null,
       format,
+      styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
       apiKeyId,
     })
     .returning()
@@ -164,7 +192,11 @@ export async function getQrImage(shortId: string, formatOverride?: QrFormat, api
 
   const format = formatOverride || (row.format as QrFormat);
   const shortUrl = `${config.baseUrl}/r/${row.shortId}`;
-  const imageData = await renderQrCode(shortUrl, format);
+  const styleOptions: QrStyleOptions | undefined = row.styleOptions
+    ? JSON.parse(row.styleOptions)
+    : undefined;
+
+  const imageData = await renderQrCode(shortUrl, format, styleOptions);
 
   return { imageData, format };
 }

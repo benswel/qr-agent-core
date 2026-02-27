@@ -19,7 +19,7 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "Create a new managed QR code",
         description:
-          "Generates a QR code that points to a short URL managed by this service. The short URL redirects to the target_url, which can be updated later without changing the QR image. Returns the QR image data inline.",
+          "Generates a QR code that points to a short URL managed by this service. The short URL redirects to the target_url, which can be updated later without changing the QR image. Returns the QR image data inline. Supports custom styling: colors, dot shapes, corner shapes, and logo embedding.",
       },
     },
     async (request, reply) => {
@@ -27,6 +27,15 @@ export async function qrRoutes(app: FastifyInstance) {
         target_url: string;
         label?: string;
         format?: "svg" | "png";
+        foreground_color?: string;
+        background_color?: string;
+        width?: number;
+        margin?: number;
+        error_correction?: "L" | "M" | "Q" | "H";
+        dot_style?: string;
+        corner_style?: string;
+        logo_url?: string;
+        logo_size?: number;
       };
 
       try {
@@ -173,7 +182,7 @@ export async function qrRoutes(app: FastifyInstance) {
         tags: ["QR Codes"],
         summary: "Download the QR code image",
         description:
-          "Returns the raw QR code image with the correct Content-Type header. Use this to embed the image in HTML (<img src=\"...\">) or download it. Supports format override via query parameter.",
+          "Returns the raw QR code image with the correct Content-Type header. Uses stored style options for regeneration. Supports format override via query parameter.",
       },
     },
     async (request, reply) => {

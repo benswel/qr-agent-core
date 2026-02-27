@@ -46,4 +46,16 @@ export const Errors = {
     code: "VALIDATION_ERROR",
     hint: "Check the request body against the JSON Schema available at GET /documentation/json. Each field has a description explaining its purpose and constraints.",
   }),
+
+  webhookNotFound: (webhookId: number): AgentError => ({
+    error: `Webhook with ID ${webhookId} was not found or you don't have permission to access it.`,
+    code: "WEBHOOK_NOT_FOUND",
+    hint: "Verify the webhook ID is correct and belongs to your API key. Use GET /api/webhooks to list your webhooks.",
+  }),
+
+  invalidWebhookUrl: (url: string): AgentError => ({
+    error: `The webhook URL "${url}" is not valid.`,
+    code: "INVALID_WEBHOOK_URL",
+    hint: "Provide a valid HTTP or HTTPS URL for the webhook endpoint. The URL must be publicly accessible to receive events.",
+  }),
 } as const;

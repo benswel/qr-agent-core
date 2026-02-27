@@ -22,6 +22,7 @@ export const apiKeys = sqliteTable("api_keys", {
  * The short_id is the public-facing identifier used in short URLs.
  * target_url can be updated at any time — the QR image stays the same.
  * apiKeyId tracks which API key owns this QR code (multi-tenant isolation).
+ * styleOptions stores JSON-serialized QrStyleOptions for image regeneration.
  */
 export const qrCodes = sqliteTable("qr_codes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -29,6 +30,7 @@ export const qrCodes = sqliteTable("qr_codes", {
   targetUrl: text("target_url").notNull(),
   label: text("label"),
   format: text("format", { enum: ["svg", "png"] }).notNull().default("svg"),
+  styleOptions: text("style_options"),
   apiKeyId: integer("api_key_id").references(() => apiKeys.id),
   createdAt: text("created_at")
     .notNull()
@@ -56,9 +58,53 @@ export const scanEvents = sqliteTable("scan_events", {
   ip: text("ip"),
 });
 
+/**
+ * Webhook endpoints registered by API keys.
+ * Each webhook receives POST requests when subscribed events occur.
+ * The secret is used for HMAC-SHA256 signature verification.
+ */
+export const webhooks = sqliteTable("webhooks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  apiKeyId: integer("api_key_id")
+    .notNull()
+    .references(() => apiKeys.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  events: text("events").notNull(), // JSON array: ["qr.scanned"]
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+/**
+ * Webhook delivery log: tracks each delivery attempt.
+ */
+export const webhookDeliveries = sqliteTable("webhook_deliveries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  webhookId: integer("webhook_id")
+    .notNull()
+    .references(() => webhooks.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  payload: text("payload").notNull(), // JSON string
+  status: text("status").notNull(), // "success" | "failed"
+  responseCode: integer("response_code"),
+  errorMessage: text("error_message"),
+  deliveredAt: text("delivered_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export type QrCode = typeof qrCodes.$inferSelect;
 export type NewQrCode = typeof qrCodes.$inferInsert;
 export type ScanEvent = typeof scanEvents.$inferSelect;
 export type NewScanEvent = typeof scanEvents.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
+export type Webhook = typeof webhooks.$inferSelect;
+export type NewWebhook = typeof webhooks.$inferInsert;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+export type NewWebhookDelivery = typeof webhookDeliveries.$inferInsert;

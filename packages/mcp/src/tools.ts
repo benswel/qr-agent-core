@@ -8,7 +8,7 @@ import { apiRequest } from "./api-client.js";
 export const tools = {
   create_qr_code: {
     description:
-      "Create a new managed QR code. The QR code points to a short URL that redirects to your target URL. You can change the target URL later without regenerating the QR image. Returns the QR image data (SVG or PNG) and the short URL.",
+      "Create a new managed QR code with optional custom styling. The QR code points to a short URL that redirects to your target URL. You can change the target URL later without regenerating the QR image. Supports custom colors, dot shapes, corner shapes, and logo embedding.",
     inputSchema: z.object({
       target_url: z
         .string()
@@ -24,8 +24,52 @@ export const tools = {
         .describe(
           'Image format. "svg" is recommended (smaller, scalable, text-parseable). Use "png" only if a bitmap is required.'
         ),
+      foreground_color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional()
+        .describe("Hex color for QR code dots. Default: #000000 (black)."),
+      background_color: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional()
+        .describe("Hex color for QR code background. Default: #ffffff (white)."),
+      width: z
+        .number()
+        .min(200)
+        .max(2000)
+        .optional()
+        .describe("QR code width in pixels. Default: 400."),
+      margin: z
+        .number()
+        .min(0)
+        .max(10)
+        .optional()
+        .describe("Quiet zone margin in modules. Default: 2."),
+      error_correction: z
+        .enum(["L", "M", "Q", "H"])
+        .optional()
+        .describe("Error correction level. L=7%, M=15% (default), Q=25%, H=30%. Auto-set to H when logo is provided."),
+      dot_style: z
+        .enum(["square", "rounded", "dots", "classy-rounded"])
+        .optional()
+        .describe("Shape of data modules. square=classic, rounded=soft corners, dots=circles, classy-rounded=organic."),
+      corner_style: z
+        .enum(["square", "extra-rounded", "dot"])
+        .optional()
+        .describe("Shape of finder patterns (corner squares). square=classic, extra-rounded=smooth, dot=circular."),
+      logo_url: z
+        .string()
+        .optional()
+        .describe("URL to a logo image (PNG/JPG/SVG) or data:base64 URI. Centered on the QR code."),
+      logo_size: z
+        .number()
+        .min(0.15)
+        .max(0.3)
+        .optional()
+        .describe("Logo size as ratio of QR width (0.15-0.3). Default: 0.2."),
     }),
-    handler: async (input: { target_url: string; label?: string; format?: "svg" | "png" }) => {
+    handler: async (input: Record<string, unknown>) => {
       return apiRequest("/api/qr", { method: "POST", body: input });
     },
   },
@@ -94,6 +138,46 @@ export const tools = {
     }),
     handler: async (input: { short_id: string }) => {
       return apiRequest(`/api/analytics/${input.short_id}`);
+    },
+  },
+
+  create_webhook: {
+    description:
+      "Register a webhook endpoint to receive real-time notifications when QR codes are scanned. Returns an HMAC-SHA256 secret for verifying webhook signatures — store it securely, it is only shown once.",
+    inputSchema: z.object({
+      url: z
+        .string()
+        .url()
+        .describe("The endpoint URL that will receive POST requests with scan event data."),
+      events: z
+        .array(z.enum(["qr.scanned"]))
+        .default(["qr.scanned"])
+        .describe('Events to subscribe to. Currently supported: "qr.scanned".'),
+    }),
+    handler: async (input: { url: string; events?: string[] }) => {
+      return apiRequest("/api/webhooks", { method: "POST", body: input });
+    },
+  },
+
+  list_webhooks: {
+    description:
+      "List all registered webhook endpoints for your API key. The HMAC secret is not included for security.",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return apiRequest("/api/webhooks");
+    },
+  },
+
+  delete_webhook: {
+    description:
+      "Delete a webhook endpoint and all its delivery logs. The endpoint will stop receiving events immediately.",
+    inputSchema: z.object({
+      webhook_id: z
+        .number()
+        .describe("The ID of the webhook to delete. Use list_webhooks to find IDs."),
+    }),
+    handler: async (input: { webhook_id: number }) => {
+      return apiRequest(`/api/webhooks/${input.webhook_id}`, { method: "DELETE" });
     },
   },
 };

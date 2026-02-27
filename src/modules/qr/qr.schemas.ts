@@ -27,6 +27,61 @@ export const qrCreateSchema = {
         description:
           'The image format for the generated QR code. "svg" (default, recommended) produces a lightweight vector image that can be embedded directly in HTML/XML, scales to any size without quality loss, and is text-parseable. "png" produces a raster bitmap — use only when a pixel-based format is strictly required.',
       },
+      foreground_color: {
+        type: "string",
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        default: "#000000",
+        description: "Hex color for QR code data modules (dots). Default: #000000 (black).",
+      },
+      background_color: {
+        type: "string",
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        default: "#ffffff",
+        description: "Hex color for QR code background. Default: #ffffff (white). Use #00000000 for transparent (SVG only).",
+      },
+      width: {
+        type: "integer",
+        minimum: 200,
+        maximum: 2000,
+        default: 400,
+        description: "QR code width in pixels. Default: 400. Higher values produce sharper images.",
+      },
+      margin: {
+        type: "integer",
+        minimum: 0,
+        maximum: 10,
+        default: 2,
+        description: "Quiet zone margin in QR modules. Default: 2. Set to 0 for no margin.",
+      },
+      error_correction: {
+        type: "string",
+        enum: ["L", "M", "Q", "H"],
+        default: "M",
+        description: "Error correction level. L=7%, M=15% (default), Q=25%, H=30%. Automatically set to H when a logo is provided.",
+      },
+      dot_style: {
+        type: "string",
+        enum: ["square", "rounded", "dots", "classy-rounded"],
+        default: "square",
+        description: "Shape of data modules. square=classic sharp corners, rounded=softened corners, dots=circles, classy-rounded=organic rounded shape.",
+      },
+      corner_style: {
+        type: "string",
+        enum: ["square", "extra-rounded", "dot"],
+        default: "square",
+        description: "Shape of the 3 finder patterns (large corner squares). square=classic, extra-rounded=smooth corners, dot=circular.",
+      },
+      logo_url: {
+        type: "string",
+        description: "URL to a logo image (PNG/JPG/SVG) or a data:base64 URI. The logo is centered on the QR code. Error correction is auto-set to H for maximum resilience.",
+      },
+      logo_size: {
+        type: "number",
+        minimum: 0.15,
+        maximum: 0.3,
+        default: 0.2,
+        description: "Logo size as a ratio of QR code width (0.15 to 0.3). Default: 0.2 (20% of width).",
+      },
     },
   },
   response: {
