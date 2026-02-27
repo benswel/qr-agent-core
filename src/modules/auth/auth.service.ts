@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
+import type { Plan } from "../../shared/types.js";
 
 const { apiKeys } = schema;
 
@@ -65,6 +66,23 @@ export function ensureEnvKeyInDb(envKey: string): number {
     .get();
 
   return inserted.id;
+}
+
+export function setApiKeyPlan(keyId: number, plan: Plan): void {
+  db.update(apiKeys)
+    .set({ plan })
+    .where(eq(apiKeys.id, keyId))
+    .run();
+}
+
+export function getApiKeyPlan(keyId: number): Plan {
+  const row = db
+    .select({ plan: apiKeys.plan })
+    .from(apiKeys)
+    .where(eq(apiKeys.id, keyId))
+    .get();
+
+  return (row?.plan as Plan) || "free";
 }
 
 export function listApiKeys() {

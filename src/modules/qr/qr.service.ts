@@ -3,7 +3,8 @@ import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
-import type { QrFormat, QrStyleOptions } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions, Plan } from "../../shared/types.js";
+import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { qrCodes } = schema;
 
@@ -44,7 +45,21 @@ function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
   return hasStyle ? style : undefined;
 }
 
-export async function createQrCode(input: CreateQrInput, apiKeyId: number) {
+export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan: Plan = "free") {
+  // Check plan quota
+  const limits = PLAN_LIMITS[plan];
+  if (limits.maxQrCodes !== Infinity) {
+    const [{ total }] = db
+      .select({ total: count() })
+      .from(qrCodes)
+      .where(eq(qrCodes.apiKeyId, apiKeyId))
+      .all();
+
+    if (total >= limits.maxQrCodes) {
+      return { error: "QR_CODE_LIMIT_REACHED", limit: limits.maxQrCodes };
+    }
+  }
+
   const shortId = nanoid(config.shortId.length);
   const format = input.format || "svg";
   const shortUrl = `${config.baseUrl}/r/${shortId}`;

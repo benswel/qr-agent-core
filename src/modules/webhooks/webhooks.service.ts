@@ -2,14 +2,31 @@ import { eq, and, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import crypto from "node:crypto";
 import { db, schema } from "../../db/index.js";
+import type { Plan } from "../../shared/types.js";
+import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { webhooks, webhookDeliveries, qrCodes } = schema;
 
 export function createWebhook(
   url: string,
   events: string[],
-  apiKeyId: number
+  apiKeyId: number,
+  plan: Plan = "free"
 ) {
+  // Check plan quota
+  const limits = PLAN_LIMITS[plan];
+  if (limits.maxWebhooks !== Infinity) {
+    const [{ total }] = db
+      .select({ total: count() })
+      .from(webhooks)
+      .where(eq(webhooks.apiKeyId, apiKeyId))
+      .all();
+
+    if (total >= limits.maxWebhooks) {
+      return { error: "WEBHOOK_LIMIT_REACHED" as const, limit: limits.maxWebhooks };
+    }
+  }
+
   const secret = nanoid(32);
 
   const inserted = db

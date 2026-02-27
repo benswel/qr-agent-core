@@ -22,9 +22,28 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
-/** Augment Fastify request with apiKeyId for multi-tenant scoping */
+/** Plan types and usage limits */
+export type Plan = "free" | "pro";
+
+export const PLAN_LIMITS = {
+  free: {
+    maxQrCodes: 10,
+    maxScansPerMonth: 1000,
+    scanGracePeriod: 100,
+    maxWebhooks: 1,
+  },
+  pro: {
+    maxQrCodes: Infinity,
+    maxScansPerMonth: Infinity,
+    scanGracePeriod: 0,
+    maxWebhooks: Infinity,
+  },
+} as const;
+
+/** Augment Fastify request with apiKeyId and plan for multi-tenant scoping */
 declare module "fastify" {
   interface FastifyRequest {
     apiKeyId: number;
+    plan: Plan;
   }
 }

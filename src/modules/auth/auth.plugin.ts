@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import fp from "fastify-plugin";
-import { validateApiKey, ensureEnvKeyInDb } from "./auth.service.js";
+import { validateApiKey, ensureEnvKeyInDb, getApiKeyPlan } from "./auth.service.js";
+import type { Plan } from "../../shared/types.js";
 import { sendError } from "../../shared/errors.js";
 
 /**
@@ -10,8 +11,9 @@ import { sendError } from "../../shared/errors.js";
  * Attaches apiKeyId to the request for multi-tenant scoping.
  */
 async function authPlugin(app: FastifyInstance) {
-  // Decorate request with apiKeyId (default 0, set in hook)
+  // Decorate request with apiKeyId and plan (defaults, overwritten in hook)
   app.decorateRequest("apiKeyId", 0);
+  app.decorateRequest<Plan>("plan", "free");
 
   // If API_KEY env var is set, seed it in DB so it has a stable ID
   let envKeyId: number | null = null;
@@ -46,6 +48,7 @@ async function authPlugin(app: FastifyInstance) {
     // Accept key from API_KEY env var
     if (envKey && apiKey === envKey && envKeyId !== null) {
       request.apiKeyId = envKeyId;
+      request.plan = getApiKeyPlan(envKeyId);
       return;
     }
 
@@ -59,6 +62,7 @@ async function authPlugin(app: FastifyInstance) {
     }
 
     request.apiKeyId = keyId;
+    request.plan = getApiKeyPlan(keyId);
   });
 }
 

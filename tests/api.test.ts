@@ -1,16 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getApp, getApiKey, getApiKey2, closeApp } from "./setup.js";
+import { getApp, getApiKey, getApiKey2, getFreeApiKey, closeApp } from "./setup.js";
 import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
 let apiKey: string;
 let apiKey2: string;
+let freeApiKey: string;
 let createdShortId: string;
 
 beforeAll(async () => {
   app = await getApp();
   apiKey = getApiKey();
   apiKey2 = getApiKey2();
+  freeApiKey = getFreeApiKey();
 });
 
 afterAll(async () => {
@@ -753,5 +755,175 @@ describe("QR Code Deletion", () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+// ─── Free Tier Quota Limits ─────────────────────────────
+
+describe("Free Tier QR Code Limit", () => {
+  it("allows creating up to 10 QR codes", async () => {
+    for (let i = 0; i < 10; i++) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/qr",
+        headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+        payload: { target_url: `https://free-test-${i}.com` },
+      });
+      expect(res.statusCode).toBe(201);
+    }
+  });
+
+  it("rejects the 11th QR code with QR_CODE_LIMIT_REACHED", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { target_url: "https://free-test-11.com" },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("QR_CODE_LIMIT_REACHED");
+    expect(res.json().hint).toContain("10");
+  });
+
+  it("allows creation again after deleting a QR code", async () => {
+    // Get list to find a shortId to delete
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/qr",
+      headers: { "x-api-key": freeApiKey },
+    });
+    const shortId = listRes.json().data[0].short_id;
+
+    // Delete one
+    await app.inject({
+      method: "DELETE",
+      url: `/api/qr/${shortId}`,
+      headers: { "x-api-key": freeApiKey },
+    });
+
+    // Now we should be able to create again
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { target_url: "https://free-test-replacement.com" },
+    });
+    expect(res.statusCode).toBe(201);
+  });
+});
+
+describe("Free Tier Webhook Limit", () => {
+  it("allows creating 1 webhook", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { url: "https://free-webhook.com/hook" },
+    });
+
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("rejects the 2nd webhook with WEBHOOK_LIMIT_REACHED", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { url: "https://free-webhook2.com/hook" },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("WEBHOOK_LIMIT_REACHED");
+    expect(res.json().hint).toContain("1");
+  });
+});
+
+describe("Pro Tier Has No Limits", () => {
+  it("pro key can create more than 10 QR codes", async () => {
+    // apiKey is pro — it already has many QR codes from other tests
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://pro-unlimited.com" },
+    });
+
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("pro key can create multiple webhooks", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/webhooks",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { url: "https://pro-webhook-extra.com/hook" },
+    });
+
+    expect(res.statusCode).toBe(201);
+  });
+});
+
+describe("Usage Endpoint", () => {
+  it("returns usage for free tier key", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/usage",
+      headers: { "x-api-key": freeApiKey },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.plan).toBe("free");
+    expect(body.qr_codes.used).toBe(10);
+    expect(body.qr_codes.limit).toBe(10);
+    expect(body.scans_this_month.limit).toBe(1000);
+    expect(body.webhooks.used).toBe(1);
+    expect(body.webhooks.limit).toBe(1);
+  });
+
+  it("returns usage for pro tier key", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/usage",
+      headers: { "x-api-key": apiKey },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.plan).toBe("pro");
+    expect(body.qr_codes.limit).toBeNull();
+    expect(body.scans_this_month.limit).toBeNull();
+    expect(body.webhooks.limit).toBeNull();
+  });
+
+  it("requires authentication", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/usage",
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe("Scan Limit — Redirect Always Works", () => {
+  let freeQrShortId: string;
+
+  it("redirect works even for free tier QR codes", async () => {
+    // Get a free tier QR code shortId
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/qr",
+      headers: { "x-api-key": freeApiKey },
+    });
+    freeQrShortId = listRes.json().data[0].short_id;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${freeQrShortId}`,
+    });
+
+    expect(res.statusCode).toBe(302);
   });
 });

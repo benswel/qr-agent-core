@@ -33,7 +33,12 @@ export async function webhooksRoutes(app: FastifyInstance) {
       }
 
       const events = body.events || ["qr.scanned"];
-      const result = webhooksService.createWebhook(body.url, events, request.apiKeyId);
+      const result = webhooksService.createWebhook(body.url, events, request.apiKeyId, request.plan);
+
+      if ("error" in result && result.error === "WEBHOOK_LIMIT_REACHED") {
+        return sendError(reply, 403, Errors.webhookLimitReached(result.limit));
+      }
+
       return reply.status(201).send(result);
     }
   );

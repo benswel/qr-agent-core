@@ -12,22 +12,34 @@ process.env.NODE_ENV = "test";
 let app: FastifyInstance;
 let testApiKey: string;
 let testApiKey2: string;
+let testFreeApiKey: string;
 
 export async function getApp() {
   if (!app) {
     const { buildApp } = await import("../src/app.js");
-    const { generateApiKey } = await import("../src/modules/auth/auth.service.js");
+    const { generateApiKey, setApiKeyPlan } = await import("../src/modules/auth/auth.service.js");
 
     app = await buildApp();
     await app.ready();
 
-    const { key } = generateApiKey("test-agent");
+    // Main test keys are "pro" so existing tests don't hit limits
+    const { key, id } = generateApiKey("test-agent");
     testApiKey = key;
+    setApiKeyPlan(id, "pro");
 
-    const { key: key2 } = generateApiKey("test-agent-2");
+    const { key: key2, id: id2 } = generateApiKey("test-agent-2");
     testApiKey2 = key2;
+    setApiKeyPlan(id2, "pro");
+
+    // A dedicated free-tier key for quota tests
+    const { key: freeKey } = generateApiKey("test-free-agent");
+    testFreeApiKey = freeKey;
   }
   return app;
+}
+
+export function getFreeApiKey() {
+  return testFreeApiKey;
 }
 
 export function getApiKey() {

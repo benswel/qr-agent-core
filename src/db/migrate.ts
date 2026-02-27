@@ -101,4 +101,11 @@ export function runMigrations() {
   `);
 
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_id ON webhook_deliveries(webhook_id)`);
+
+  // Migration: add plan column to api_keys if missing (default: 'free')
+  try {
+    db.run(sql`ALTER TABLE api_keys ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

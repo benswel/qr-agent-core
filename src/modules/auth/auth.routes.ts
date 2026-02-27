@@ -1,7 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { eq, and, gt, count } from "drizzle-orm";
 import { generateApiKey } from "./auth.service.js";
 import { sendError } from "../../shared/errors.js";
+import { PLAN_LIMITS } from "../../shared/types.js";
+import { db, schema } from "../../db/index.js";
+
+const { qrCodes, scanEvents, webhooks } = schema;
 
 const registerBodySchema = z.object({
   email: z.string().email(),
@@ -82,6 +87,102 @@ export async function authRoutes(app: FastifyInstance) {
         label: result.label,
         message: "Store this key securely — it won't be shown again.",
       });
+    }
+  );
+
+  // GET /api/usage — current usage for authenticated API key
+  app.get(
+    "/api/usage",
+    {
+      schema: {
+        tags: ["Auth"],
+        summary: "Get current usage and quota for your API key",
+        description:
+          "Returns current usage counts and plan limits for the authenticated API key. Use this to monitor quota consumption and determine when to upgrade.",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              plan: { type: "string" },
+              qr_codes: {
+                type: "object",
+                properties: {
+                  used: { type: "number" },
+                  limit: { type: ["number", "null"] },
+                },
+              },
+              scans_this_month: {
+                type: "object",
+                properties: {
+                  used: { type: "number" },
+                  limit: { type: ["number", "null"] },
+                  grace_remaining: { type: ["number", "null"] },
+                },
+              },
+              webhooks: {
+                type: "object",
+                properties: {
+                  used: { type: "number" },
+                  limit: { type: ["number", "null"] },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const plan = request.plan;
+      const limits = PLAN_LIMITS[plan];
+      const apiKeyId = request.apiKeyId;
+
+      // Count QR codes
+      const [{ qrCount }] = db
+        .select({ qrCount: count() })
+        .from(qrCodes)
+        .where(eq(qrCodes.apiKeyId, apiKeyId))
+        .all();
+
+      // Count scans in last 30 days
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [{ scanCount }] = db
+        .select({ scanCount: count() })
+        .from(scanEvents)
+        .innerJoin(qrCodes, eq(scanEvents.qrCodeId, qrCodes.id))
+        .where(
+          and(
+            eq(qrCodes.apiKeyId, apiKeyId),
+            gt(scanEvents.scannedAt, thirtyDaysAgo)
+          )
+        )
+        .all();
+
+      // Count webhooks
+      const [{ webhookCount }] = db
+        .select({ webhookCount: count() })
+        .from(webhooks)
+        .where(eq(webhooks.apiKeyId, apiKeyId))
+        .all();
+
+      const hardLimit = limits.maxScansPerMonth + limits.scanGracePeriod;
+      const graceRemaining = Math.max(0, hardLimit - Math.max(scanCount, limits.maxScansPerMonth));
+
+      return {
+        plan,
+        qr_codes: {
+          used: qrCount,
+          limit: limits.maxQrCodes === Infinity ? null : limits.maxQrCodes,
+        },
+        scans_this_month: {
+          used: scanCount,
+          limit: limits.maxScansPerMonth === Infinity ? null : limits.maxScansPerMonth,
+          grace_remaining: limits.scanGracePeriod === 0 ? null : graceRemaining,
+        },
+        webhooks: {
+          used: webhookCount,
+          limit: limits.maxWebhooks === Infinity ? null : limits.maxWebhooks,
+        },
+      };
     }
   );
 }

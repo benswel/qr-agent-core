@@ -44,7 +44,12 @@ export async function qrRoutes(app: FastifyInstance) {
         return sendError(reply, 400, Errors.invalidUrl(body.target_url));
       }
 
-      const result = await qrService.createQrCode(body, request.apiKeyId);
+      const result = await qrService.createQrCode(body, request.apiKeyId, request.plan);
+
+      if ("error" in result && result.error === "QR_CODE_LIMIT_REACHED") {
+        return sendError(reply, 403, Errors.qrCodeLimitReached(result.limit));
+      }
+
       return reply.status(201).send(result);
     }
   );

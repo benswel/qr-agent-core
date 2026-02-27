@@ -1,11 +1,13 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, and, gt, count } from "drizzle-orm";
 import { db, schema } from "../../db/index.js";
 import { recordScan } from "./redirect.service.js";
 import { dispatchScannedEvent } from "../webhooks/webhooks.service.js";
 import { sendError, Errors } from "../../shared/errors.js";
+import { PLAN_LIMITS } from "../../shared/types.js";
+import type { Plan } from "../../shared/types.js";
 
-const { qrCodes } = schema;
+const { qrCodes, scanEvents, apiKeys } = schema;
 
 export async function redirectRoutes(app: FastifyInstance) {
   // Short URL redirect: /r/:shortId → target_url
@@ -45,8 +47,43 @@ export async function redirectRoutes(app: FastifyInstance) {
         ip: request.ip,
       };
 
-      // Record the scan (fire-and-forget)
-      recordScan(row.id, scanData);
+      // Check scan quota before recording
+      let shouldRecord = true;
+      if (row.apiKeyId) {
+        const keyRow = db
+          .select({ plan: apiKeys.plan })
+          .from(apiKeys)
+          .where(eq(apiKeys.id, row.apiKeyId))
+          .get();
+
+        const plan = (keyRow?.plan as Plan) || "free";
+        const limits = PLAN_LIMITS[plan];
+        const hardLimit = limits.maxScansPerMonth + limits.scanGracePeriod;
+
+        if (hardLimit !== Infinity) {
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          const [{ total }] = db
+            .select({ total: count() })
+            .from(scanEvents)
+            .innerJoin(qrCodes, eq(scanEvents.qrCodeId, qrCodes.id))
+            .where(
+              and(
+                eq(qrCodes.apiKeyId, row.apiKeyId),
+                gt(scanEvents.scannedAt, thirtyDaysAgo)
+              )
+            )
+            .all();
+
+          if (total >= hardLimit) {
+            shouldRecord = false;
+          }
+        }
+      }
+
+      // Record the scan (fire-and-forget) — skip if over quota
+      if (shouldRecord) {
+        recordScan(row.id, scanData);
+      }
 
       // Dispatch webhook notifications (fire-and-forget)
       if (row.apiKeyId) {

@@ -15,6 +15,7 @@ export const apiKeys = sqliteTable("api_keys", {
     .$defaultFn(() => new Date().toISOString()),
   expiresAt: text("expires_at"),
   lastUsedAt: text("last_used_at"),
+  plan: text("plan").notNull().default("free"),
 });
 
 /**

@@ -58,4 +58,16 @@ export const Errors = {
     code: "INVALID_WEBHOOK_URL",
     hint: "Provide a valid HTTP or HTTPS URL for the webhook endpoint. The URL must be publicly accessible to receive events.",
   }),
+
+  qrCodeLimitReached: (limit: number): AgentError => ({
+    error: `QR code limit reached. Your plan allows ${limit} QR codes.`,
+    code: "QR_CODE_LIMIT_REACHED",
+    hint: `You have reached the maximum of ${limit} QR codes for your current plan. Delete unused QR codes or upgrade to Pro for unlimited QR codes.`,
+  }),
+
+  webhookLimitReached: (limit: number): AgentError => ({
+    error: `Webhook limit reached. Your plan allows ${limit} webhook endpoint${limit === 1 ? "" : "s"}.`,
+    code: "WEBHOOK_LIMIT_REACHED",
+    hint: `You have reached the maximum of ${limit} webhook${limit === 1 ? "" : "s"} for your current plan. Delete an existing webhook or upgrade to Pro for unlimited webhooks.`,
+  }),
 } as const;
