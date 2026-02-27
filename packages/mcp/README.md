@@ -65,7 +65,7 @@ Add to `.cursor/mcp.json` in your project:
 
 ## Tools
 
-The server exposes 9 tools:
+The server exposes 12 tools:
 
 ### QR Code Management
 
@@ -85,6 +85,14 @@ The server exposes 9 tools:
 | `create_webhook`       | Register an endpoint to receive real-time scan notifications (HMAC-signed)  |
 | `list_webhooks`        | List all registered webhook endpoints                                       |
 | `delete_webhook`       | Remove a webhook endpoint                                                   |
+
+### Account
+
+| Tool                    | Description                                                                 |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `register`             | Register for an API key with your email                                     |
+| `get_usage`            | Get current usage and quota for your API key                                |
+| `join_waitlist`        | Join the Pro plan waitlist                                                  |
 
 ### Custom QR Styling
 

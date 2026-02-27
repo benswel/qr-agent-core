@@ -180,4 +180,39 @@ export const tools = {
       return apiRequest(`/api/webhooks/${input.webhook_id}`, { method: "DELETE" });
     },
   },
+
+  register: {
+    description:
+      "Register for an API key. Provide your email to get a key immediately.",
+    inputSchema: z.object({
+      email: z.string().email().describe("Your email address."),
+      label: z
+        .string()
+        .optional()
+        .describe("An optional label to identify this API key."),
+    }),
+    handler: async (input: { email: string; label?: string }) => {
+      return apiRequest("/api/register", { method: "POST", body: input });
+    },
+  },
+
+  get_usage: {
+    description:
+      "Get current usage and quota for your API key.",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return apiRequest("/api/usage");
+    },
+  },
+
+  join_waitlist: {
+    description:
+      "Join the Pro plan waitlist to be notified when it launches.",
+    inputSchema: z.object({
+      email: z.string().email().describe("Your email address."),
+    }),
+    handler: async (input: { email: string }) => {
+      return apiRequest("/api/waitlist", { method: "POST", body: input });
+    },
+  },
 };
