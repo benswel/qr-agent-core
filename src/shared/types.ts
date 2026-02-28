@@ -45,5 +45,6 @@ declare module "fastify" {
   interface FastifyRequest {
     apiKeyId: number;
     plan: Plan;
+    rawBody?: Buffer;
   }
 }

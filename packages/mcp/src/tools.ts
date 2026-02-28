@@ -205,14 +205,21 @@ export const tools = {
     },
   },
 
-  join_waitlist: {
+  upgrade_to_pro: {
     description:
-      "Join the Pro plan waitlist to be notified when it launches.",
-    inputSchema: z.object({
-      email: z.string().email().describe("Your email address."),
-    }),
-    handler: async (input: { email: string }) => {
-      return apiRequest("/api/waitlist", { method: "POST", body: input });
+      "Upgrade to the Pro plan ($19/month) for unlimited QR codes, scans, and webhooks. Returns a Stripe Checkout URL — tell the user to open it in their browser to complete payment. The upgrade takes effect automatically after payment.",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return apiRequest("/api/stripe/checkout", { method: "POST" });
+    },
+  },
+
+  manage_billing: {
+    description:
+      "Open the Stripe billing portal to manage your subscription, update payment method, or cancel. Returns a portal URL — tell the user to open it in their browser. Only works if you have an active Pro subscription.",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return apiRequest("/api/stripe/portal", { method: "POST" });
     },
   },
 };

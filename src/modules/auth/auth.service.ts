@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
+import type { ApiKey } from "../../db/schema.js";
 import type { Plan } from "../../shared/types.js";
 
 const { apiKeys } = schema;
@@ -102,6 +103,32 @@ export function listApiKeys() {
       // Only show first 10 chars of the key for security
       keyPreview: row.keyPreview.substring(0, 10) + "...",
     }));
+}
+
+export function getApiKeyById(id: number): ApiKey | undefined {
+  return db.select().from(apiKeys).where(eq(apiKeys.id, id)).get();
+}
+
+export function setStripeCustomerId(keyId: number, stripeCustomerId: string): void {
+  db.update(apiKeys)
+    .set({ stripeCustomerId })
+    .where(eq(apiKeys.id, keyId))
+    .run();
+}
+
+export function setStripeSubscriptionId(keyId: number, stripeSubscriptionId: string | null): void {
+  db.update(apiKeys)
+    .set({ stripeSubscriptionId })
+    .where(eq(apiKeys.id, keyId))
+    .run();
+}
+
+export function getApiKeyByStripeCustomerId(stripeCustomerId: string): ApiKey | undefined {
+  return db
+    .select()
+    .from(apiKeys)
+    .where(eq(apiKeys.stripeCustomerId, stripeCustomerId))
+    .get();
 }
 
 export function revokeApiKey(id: number): boolean {

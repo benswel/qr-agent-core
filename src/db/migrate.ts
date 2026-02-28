@@ -109,6 +109,19 @@ export function runMigrations() {
     // Column already exists — ignore
   }
 
+  // Migration: add Stripe columns to api_keys
+  try {
+    db.run(sql`ALTER TABLE api_keys ADD COLUMN stripe_customer_id TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE api_keys ADD COLUMN stripe_subscription_id TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Create pro_waitlist table
   db.run(sql`
     CREATE TABLE IF NOT EXISTS pro_waitlist (

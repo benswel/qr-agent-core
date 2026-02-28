@@ -187,6 +187,20 @@ export async function authRoutes(app: FastifyInstance) {
           used: webhookCount,
           limit: limits.maxWebhooks === Infinity ? null : limits.maxWebhooks,
         },
+        ...(plan === "free"
+          ? {
+              upgrade: {
+                available: true,
+                plan: "pro",
+                price: "$19/month",
+                hint: "Use the upgrade_to_pro tool to subscribe, or visit https://qrforagent.com/pricing",
+              },
+            }
+          : {
+              billing: {
+                hint: "Use the manage_billing tool to access the Stripe Customer Portal.",
+              },
+            }),
       };
     }
   );

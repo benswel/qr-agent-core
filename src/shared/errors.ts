@@ -62,12 +62,12 @@ export const Errors = {
   qrCodeLimitReached: (limit: number): AgentError => ({
     error: `QR code limit reached. Your plan allows ${limit} QR codes.`,
     code: "QR_CODE_LIMIT_REACHED",
-    hint: `You have reached the maximum of ${limit} QR codes for your current plan. Delete unused QR codes or upgrade to Pro for unlimited QR codes.`,
+    hint: `You have reached the maximum of ${limit} QR codes for your current plan. Delete unused QR codes or use the upgrade_to_pro tool to subscribe to Pro ($19/month) for unlimited QR codes.`,
   }),
 
   webhookLimitReached: (limit: number): AgentError => ({
     error: `Webhook limit reached. Your plan allows ${limit} webhook endpoint${limit === 1 ? "" : "s"}.`,
     code: "WEBHOOK_LIMIT_REACHED",
-    hint: `You have reached the maximum of ${limit} webhook${limit === 1 ? "" : "s"} for your current plan. Delete an existing webhook or upgrade to Pro for unlimited webhooks.`,
+    hint: `You have reached the maximum of ${limit} webhook${limit === 1 ? "" : "s"} for your current plan. Delete an existing webhook or use the upgrade_to_pro tool to subscribe to Pro ($19/month) for unlimited webhooks.`,
   }),
 } as const;

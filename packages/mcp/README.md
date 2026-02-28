@@ -65,7 +65,7 @@ Add to `.cursor/mcp.json` in your project:
 
 ## Tools
 
-The server exposes 12 tools:
+The server exposes 13 tools:
 
 ### QR Code Management
 
@@ -92,7 +92,8 @@ The server exposes 12 tools:
 | ----------------------- | --------------------------------------------------------------------------- |
 | `register`             | Register for an API key with your email                                     |
 | `get_usage`            | Get current usage and quota for your API key                                |
-| `join_waitlist`        | Join the Pro plan waitlist                                                  |
+| `upgrade_to_pro`       | Upgrade to Pro ($19/month) — returns a Stripe Checkout URL                  |
+| `manage_billing`       | Open Stripe billing portal to manage subscription                           |
 
 ### Custom QR Styling
 

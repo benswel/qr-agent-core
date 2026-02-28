@@ -12,4 +12,9 @@ export const config = {
     length: parseInt(process.env.SHORT_ID_LENGTH || "8", 10),
   },
   adminSecret: process.env.ADMIN_SECRET || "",
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    priceId: process.env.STRIPE_PRICE_ID || "",
+  },
 } as const;

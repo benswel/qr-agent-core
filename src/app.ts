@@ -11,6 +11,7 @@ import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
 import { wellKnownRoutes } from "./modules/well-known/well-known.routes.js";
 import { imageRoutes } from "./modules/image/image.routes.js";
 import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
+import { stripeRoutes } from "./modules/stripe/stripe.routes.js";
 import authPlugin from "./modules/auth/auth.plugin.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { generateApiKey, listApiKeys } from "./modules/auth/auth.service.js";
@@ -91,6 +92,11 @@ export async function buildApp() {
             "Register webhook endpoints to receive real-time notifications when QR codes are scanned. Each webhook receives signed POST requests with event data.",
         },
         {
+          name: "Billing",
+          description:
+            "Stripe-powered billing for the Pro plan. Upgrade, manage subscriptions, and handle payment webhooks.",
+        },
+        {
           name: "Discovery",
           description:
             "Machine-readable manifests for AI agent and crawler discovery (.well-known endpoints).",
@@ -131,6 +137,7 @@ export async function buildApp() {
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(imageRoutes);
   await app.register(webhooksRoutes, { prefix: "/api/webhooks" });
+  await app.register(stripeRoutes, { prefix: "/api/stripe" });
   await app.register(wellKnownRoutes);
 
   // Global error handler — agent-friendly errors
