@@ -109,6 +109,26 @@ export async function handleWebhookEvent(
       break;
     }
 
+    case "customer.subscription.created": {
+      const subscription = event.data.object as Stripe.Subscription;
+      const customerId = subscription.customer as string;
+      const apiKeyId = Number(subscription.metadata?.api_key_id);
+      if (subscription.status === "active") {
+        // Try metadata first (set during checkout), fallback to customer lookup
+        if (apiKeyId) {
+          setApiKeyPlan(apiKeyId, "pro");
+          setStripeSubscriptionId(apiKeyId, subscription.id);
+        } else {
+          const apiKey = getApiKeyByStripeCustomerId(customerId);
+          if (apiKey) {
+            setApiKeyPlan(apiKey.id, "pro");
+            setStripeSubscriptionId(apiKey.id, subscription.id);
+          }
+        }
+      }
+      break;
+    }
+
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = subscription.customer as string;
