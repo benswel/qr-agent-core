@@ -9,8 +9,13 @@ export async function stripeRoutes(app: FastifyInstance) {
     { parseAs: "buffer" },
     (req, body, done) => {
       (req as any).rawBody = body;
+      const str = body.toString();
+      if (!str) {
+        done(null, null);
+        return;
+      }
       try {
-        done(null, JSON.parse(body.toString()));
+        done(null, JSON.parse(str));
       } catch (err) {
         done(err as Error, undefined);
       }
