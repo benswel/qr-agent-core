@@ -131,6 +131,21 @@ export async function authRoutes(app: FastifyInstance) {
                   limit: { type: ["number", "null"] },
                 },
               },
+              upgrade: {
+                type: "object",
+                properties: {
+                  available: { type: "boolean" },
+                  plan: { type: "string" },
+                  price: { type: "string" },
+                  hint: { type: "string" },
+                },
+              },
+              billing: {
+                type: "object",
+                properties: {
+                  hint: { type: "string" },
+                },
+              },
             },
           },
         },
