@@ -929,6 +929,146 @@ describe("Scan Limit — Redirect Always Works", () => {
 });
 
 // ============================================================
+// Bulk Operations
+// ============================================================
+
+describe("Bulk Create", () => {
+  it("should create multiple QR codes at once", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        items: [
+          { target_url: "https://bulk1.example.com", label: "Bulk 1" },
+          { target_url: "https://bulk2.example.com", label: "Bulk 2" },
+          { target_url: "https://bulk3.example.com", label: "Bulk 3" },
+        ],
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.created).toBe(3);
+    expect(body.items).toHaveLength(3);
+    expect(body.items[0]).toHaveProperty("short_id");
+    expect(body.items[0]).toHaveProperty("image_data");
+    expect(body.items[0].target_url).toBe("https://bulk1.example.com");
+  });
+
+  it("should reject empty items array", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: { items: [] },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("should enforce quota on free plan", async () => {
+    // freeApiKey has maxQrCodes=10, create 11 to exceed
+    const items = Array.from({ length: 11 }, (_, i) => ({
+      target_url: `https://free-bulk-${i}.example.com`,
+    }));
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": freeApiKey },
+      payload: { items },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("QR_CODE_LIMIT_REACHED");
+  });
+});
+
+let bulkShortIds: string[] = [];
+
+describe("Bulk Update", () => {
+  it("should update multiple QR codes at once", async () => {
+    // First create some QR codes to update
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        items: [
+          { target_url: "https://update1.example.com" },
+          { target_url: "https://update2.example.com" },
+        ],
+      },
+    });
+    bulkShortIds = createRes.json().items.map((i: any) => i.short_id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        items: [
+          { short_id: bulkShortIds[0], target_url: "https://updated1.example.com" },
+          { short_id: bulkShortIds[1], label: "Updated Label" },
+        ],
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.updated).toBe(2);
+    expect(body.not_found).toBe(0);
+  });
+
+  it("should report not_found for invalid short_ids", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        items: [
+          { short_id: "nonexistent", target_url: "https://nope.com" },
+        ],
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().not_found).toBe(1);
+    expect(res.json().items[0].status).toBe("not_found");
+  });
+});
+
+describe("Bulk Delete", () => {
+  it("should delete multiple QR codes at once", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: { short_ids: bulkShortIds },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.deleted).toBe(2);
+    expect(body.not_found).toBe(0);
+  });
+
+  it("should report not_found for invalid short_ids", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/qr/bulk",
+      headers: { "x-api-key": apiKey },
+      payload: { short_ids: ["nonexistent1", "nonexistent2"] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().deleted).toBe(0);
+    expect(res.json().not_found).toBe(2);
+  });
+});
+
+// ============================================================
 // Admin Endpoints
 // ============================================================
 

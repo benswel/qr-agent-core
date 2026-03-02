@@ -216,6 +216,138 @@ export async function getQrImage(shortId: string, formatOverride?: QrFormat, api
   return { imageData, format };
 }
 
+// ---- Bulk operations ----
+
+export async function bulkCreateQrCodes(
+  items: CreateQrInput[],
+  apiKeyId: number,
+  plan: Plan = "free"
+) {
+  // Check plan quota upfront (all-or-nothing)
+  const limits = PLAN_LIMITS[plan];
+  if (limits.maxQrCodes !== Infinity) {
+    const [{ total }] = db
+      .select({ total: count() })
+      .from(qrCodes)
+      .where(eq(qrCodes.apiKeyId, apiKeyId))
+      .all();
+
+    const remaining = limits.maxQrCodes - total;
+    if (items.length > remaining) {
+      return {
+        error: "QR_CODE_LIMIT_REACHED" as const,
+        limit: limits.maxQrCodes,
+        existing: total,
+        requested: items.length,
+        remaining,
+      };
+    }
+  }
+
+  const results = [];
+  for (const input of items) {
+    const shortId = nanoid(config.shortId.length);
+    const format = input.format || "svg";
+    const shortUrl = `${config.baseUrl}/r/${shortId}`;
+    const styleOptions = buildStyleOptions(input);
+    const imageData = await renderQrCode(shortUrl, format, styleOptions);
+
+    const inserted = db
+      .insert(qrCodes)
+      .values({
+        shortId,
+        targetUrl: input.target_url,
+        label: input.label || null,
+        format,
+        styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
+        apiKeyId,
+      })
+      .returning()
+      .get();
+
+    results.push({
+      id: inserted.id,
+      short_id: inserted.shortId,
+      short_url: shortUrl,
+      target_url: inserted.targetUrl,
+      label: inserted.label,
+      format: inserted.format,
+      image_data: imageData,
+      created_at: inserted.createdAt,
+    });
+  }
+
+  return { created: results.length, items: results };
+}
+
+export function bulkUpdateQrCodes(
+  items: Array<{ short_id: string; target_url?: string; label?: string }>,
+  apiKeyId: number
+) {
+  let updated = 0;
+  let notFound = 0;
+  const results: Array<{ short_id: string; status: "updated" | "not_found"; target_url?: string; label?: string }> = [];
+
+  for (const item of items) {
+    const existing = db
+      .select()
+      .from(qrCodes)
+      .where(and(eq(qrCodes.shortId, item.short_id), eq(qrCodes.apiKeyId, apiKeyId)))
+      .get();
+
+    if (!existing) {
+      notFound++;
+      results.push({ short_id: item.short_id, status: "not_found" });
+      continue;
+    }
+
+    db.update(qrCodes)
+      .set({
+        ...(item.target_url !== undefined && { targetUrl: item.target_url }),
+        ...(item.label !== undefined && { label: item.label }),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(qrCodes.shortId, item.short_id))
+      .run();
+
+    updated++;
+    results.push({
+      short_id: item.short_id,
+      status: "updated",
+      ...(item.target_url !== undefined && { target_url: item.target_url }),
+      ...(item.label !== undefined && { label: item.label }),
+    });
+  }
+
+  return { updated, not_found: notFound, items: results };
+}
+
+export function bulkDeleteQrCodes(shortIds: string[], apiKeyId: number) {
+  let deleted = 0;
+  let notFound = 0;
+  const results: Array<{ short_id: string; status: "deleted" | "not_found" }> = [];
+
+  for (const shortId of shortIds) {
+    const existing = db
+      .select()
+      .from(qrCodes)
+      .where(and(eq(qrCodes.shortId, shortId), eq(qrCodes.apiKeyId, apiKeyId)))
+      .get();
+
+    if (!existing) {
+      notFound++;
+      results.push({ short_id: shortId, status: "not_found" });
+      continue;
+    }
+
+    db.delete(qrCodes).where(eq(qrCodes.shortId, shortId)).run();
+    deleted++;
+    results.push({ short_id: shortId, status: "deleted" });
+  }
+
+  return { deleted, not_found: notFound, items: results };
+}
+
 export function getTargetUrl(shortId: string): string | null {
   const row = db
     .select({ targetUrl: qrCodes.targetUrl })

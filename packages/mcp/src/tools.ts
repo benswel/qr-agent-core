@@ -141,6 +141,68 @@ export const tools = {
     },
   },
 
+  bulk_create_qr_codes: {
+    description:
+      "Create multiple QR codes in a single request (up to 50). Each item supports the same options as create_qr_code. The quota check is all-or-nothing: if the batch would exceed your plan limit, no QR codes are created. Ideal for generating QR codes for product catalogs, event lists, or batch operations.",
+    inputSchema: z.object({
+      items: z
+        .array(
+          z.object({
+            target_url: z.string().url().describe("The destination URL."),
+            label: z.string().optional().describe("Optional label."),
+            format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+            foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+            background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+            dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+            corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+            logo_url: z.string().optional().describe("Logo URL or data URI."),
+          })
+        )
+        .min(1)
+        .max(50)
+        .describe("Array of QR codes to create. Max 50 per request."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      return apiRequest("/api/qr/bulk", { method: "POST", body: input });
+    },
+  },
+
+  bulk_update_qr_codes: {
+    description:
+      "Update multiple QR codes in a single request (up to 50). Change target URLs and/or labels. Items with non-existent short_id are reported as not_found without failing the whole batch.",
+    inputSchema: z.object({
+      items: z
+        .array(
+          z.object({
+            short_id: z.string().describe("The short_id of the QR code to update."),
+            target_url: z.string().url().optional().describe("New destination URL."),
+            label: z.string().optional().describe("New label."),
+          })
+        )
+        .min(1)
+        .max(50)
+        .describe("Array of QR code updates. Max 50 per request."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      return apiRequest("/api/qr/bulk", { method: "PATCH", body: input });
+    },
+  },
+
+  bulk_delete_qr_codes: {
+    description:
+      "Delete multiple QR codes and their scan analytics in a single request (up to 50). Items with non-existent short_id are reported as not_found without failing the whole batch.",
+    inputSchema: z.object({
+      short_ids: z
+        .array(z.string())
+        .min(1)
+        .max(50)
+        .describe("Array of short_id strings to delete. Max 50 per request."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      return apiRequest("/api/qr/bulk", { method: "DELETE", body: input });
+    },
+  },
+
   create_webhook: {
     description:
       "Register a webhook endpoint to receive real-time notifications when QR codes are scanned. Returns an HMAC-SHA256 secret for verifying webhook signatures — store it securely, it is only shown once.",

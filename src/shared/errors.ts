@@ -65,6 +65,18 @@ export const Errors = {
     hint: `You have reached the maximum of ${limit} QR codes for your current plan. Delete unused QR codes or use the upgrade_to_pro tool to subscribe to Pro ($19/month) for unlimited QR codes.`,
   }),
 
+  bulkQrCodeLimitReached: (limit: number, existing: number, requested: number): AgentError => ({
+    error: `Bulk create would exceed quota. Plan allows ${limit} QR codes, you have ${existing}, requested ${requested}.`,
+    code: "QR_CODE_LIMIT_REACHED",
+    hint: `You can create at most ${limit - existing} more QR codes. Reduce the items array or use the upgrade_to_pro tool for unlimited QR codes.`,
+  }),
+
+  bulkTooManyItems: (max: number): AgentError => ({
+    error: `Too many items. Maximum is ${max} per request.`,
+    code: "BULK_TOO_MANY_ITEMS",
+    hint: `Split your request into batches of ${max} items or fewer.`,
+  }),
+
   webhookLimitReached: (limit: number): AgentError => ({
     error: `Webhook limit reached. Your plan allows ${limit} webhook endpoint${limit === 1 ? "" : "s"}.`,
     code: "WEBHOOK_LIMIT_REACHED",

@@ -5,6 +5,9 @@ import {
   qrGetSchema,
   qrUpdateSchema,
   qrDeleteSchema,
+  qrBulkCreateSchema,
+  qrBulkUpdateSchema,
+  qrBulkDeleteSchema,
 } from "./qr.schemas.js";
 import * as qrService from "./qr.service.js";
 import { sendError, Errors } from "../../shared/errors.js";
@@ -155,6 +158,94 @@ export async function qrRoutes(app: FastifyInstance) {
         short_id: shortId,
         message: "QR code and all associated scan events have been permanently deleted.",
       });
+    }
+  );
+
+  // ---- Bulk operations ----
+
+  // BULK CREATE QR codes
+  app.post(
+    "/bulk",
+    {
+      schema: {
+        ...qrBulkCreateSchema,
+        tags: ["QR Codes"],
+        summary: "Create multiple QR codes in one request",
+        description:
+          "Create up to 50 QR codes in a single request. Each item supports the same options as POST /api/qr. The quota check is all-or-nothing: if the batch would exceed your plan limit, no QR codes are created.",
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as { items: Array<Record<string, unknown>> };
+
+      // Validate each URL
+      for (const item of body.items) {
+        try {
+          new URL(item.target_url as string);
+        } catch {
+          return sendError(reply, 400, Errors.invalidUrl(item.target_url as string));
+        }
+      }
+
+      const result = await qrService.bulkCreateQrCodes(
+        body.items as any,
+        request.apiKeyId,
+        request.plan
+      );
+
+      if ("error" in result && result.error === "QR_CODE_LIMIT_REACHED") {
+        return sendError(reply, 403, Errors.bulkQrCodeLimitReached(result.limit, result.existing, result.requested));
+      }
+
+      return reply.status(201).send(result);
+    }
+  );
+
+  // BULK UPDATE QR codes
+  app.patch(
+    "/bulk",
+    {
+      schema: {
+        ...qrBulkUpdateSchema,
+        tags: ["QR Codes"],
+        summary: "Update multiple QR codes in one request",
+        description:
+          "Update up to 50 QR codes in a single request. Each item requires short_id plus target_url and/or label. Items with non-existent short_id are reported as not_found (no error thrown).",
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as { items: Array<{ short_id: string; target_url?: string; label?: string }> };
+
+      // Validate URLs
+      for (const item of body.items) {
+        if (item.target_url) {
+          try {
+            new URL(item.target_url);
+          } catch {
+            return sendError(reply, 400, Errors.invalidUrl(item.target_url));
+          }
+        }
+      }
+
+      return qrService.bulkUpdateQrCodes(body.items, request.apiKeyId);
+    }
+  );
+
+  // BULK DELETE QR codes
+  app.delete(
+    "/bulk",
+    {
+      schema: {
+        ...qrBulkDeleteSchema,
+        tags: ["QR Codes"],
+        summary: "Delete multiple QR codes in one request",
+        description:
+          "Delete up to 50 QR codes and their scan analytics in a single request. Items with non-existent short_id are reported as not_found.",
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as { short_ids: string[] };
+      return qrService.bulkDeleteQrCodes(body.short_ids, request.apiKeyId);
     }
   );
 

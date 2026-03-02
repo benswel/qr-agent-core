@@ -114,6 +114,122 @@ export const qrCreateSchema = {
   },
 };
 
+// ---- Bulk schemas ----
+
+const qrItemProperties = qrCreateSchema.body.properties;
+
+export const qrBulkCreateSchema = {
+  body: {
+    type: "object" as const,
+    required: ["items"],
+    properties: {
+      items: {
+        type: "array",
+        minItems: 1,
+        maxItems: 50,
+        description: "Array of QR codes to create (max 50). Each item has the same schema as POST /api/qr.",
+        items: {
+          type: "object" as const,
+          required: ["target_url"],
+          properties: qrItemProperties,
+        },
+      },
+    },
+  },
+  response: {
+    201: {
+      type: "object",
+      properties: {
+        created: { type: "integer", description: "Number of QR codes created." },
+        items: {
+          type: "array",
+          items: qrCreateSchema.response[201],
+        },
+      },
+    },
+  },
+};
+
+export const qrBulkUpdateSchema = {
+  body: {
+    type: "object" as const,
+    required: ["items"],
+    properties: {
+      items: {
+        type: "array",
+        minItems: 1,
+        maxItems: 50,
+        description: "Array of QR codes to update (max 50). Each item requires short_id plus target_url and/or label.",
+        items: {
+          type: "object" as const,
+          required: ["short_id"],
+          properties: {
+            short_id: { type: "string", description: "The short_id of the QR code to update." },
+            target_url: { type: "string", description: "New destination URL." },
+            label: { type: "string", description: "New label." },
+          },
+        },
+      },
+    },
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        updated: { type: "integer" },
+        not_found: { type: "integer" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              short_id: { type: "string" },
+              status: { type: "string", enum: ["updated", "not_found"] },
+              target_url: { type: "string" },
+              label: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+export const qrBulkDeleteSchema = {
+  body: {
+    type: "object" as const,
+    required: ["short_ids"],
+    properties: {
+      short_ids: {
+        type: "array",
+        minItems: 1,
+        maxItems: 50,
+        description: "Array of short_id strings to delete (max 50).",
+        items: { type: "string" },
+      },
+    },
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        deleted: { type: "integer" },
+        not_found: { type: "integer" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              short_id: { type: "string" },
+              status: { type: "string", enum: ["deleted", "not_found"] },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 export const qrListSchema = {
   querystring: {
     type: "object" as const,

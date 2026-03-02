@@ -107,6 +107,9 @@ npm run key:list       # List API keys
 - `GET /api/webhooks` — list webhooks
 - `DELETE /api/webhooks/:id` — delete webhook
 - `GET /api/usage` — current usage and quota for authenticated key
+- `POST /api/qr/bulk` — create up to 50 QR codes in one request (all-or-nothing quota check)
+- `PATCH /api/qr/bulk` — update up to 50 QR codes in one request (partial success)
+- `DELETE /api/qr/bulk` — delete up to 50 QR codes in one request (partial success)
 - `POST /api/stripe/checkout` — create Stripe Checkout session to upgrade to Pro ($19/month)
 - `POST /api/stripe/portal` — open Stripe Customer Portal for billing management
 
