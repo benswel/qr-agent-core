@@ -352,6 +352,243 @@ export const tools = {
     },
   },
 
+  create_email_qr: {
+    description:
+      "Create a QR code that opens a pre-filled email when scanned. The recipient, subject, body, CC, and BCC can all be pre-set.",
+    inputSchema: z.object({
+      to: z.string().describe("Recipient email address."),
+      subject: z.string().optional().describe("Email subject line."),
+      body: z.string().optional().describe("Email body text."),
+      cc: z.string().optional().describe("CC recipient(s)."),
+      bcc: z.string().optional().describe("BCC recipient(s)."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { to, subject, body, cc, bcc, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "email", email_data: { to, subject, body, cc, bcc }, ...rest },
+      });
+    },
+  },
+
+  create_sms_qr: {
+    description:
+      "Create a QR code that opens a pre-filled SMS message when scanned. Set the phone number and optional message text.",
+    inputSchema: z.object({
+      phone_number: z.string().describe("Phone number to send SMS to."),
+      message: z.string().optional().describe("Pre-filled SMS message text."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { phone_number, message, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "sms", sms_data: { phone_number, message }, ...rest },
+      });
+    },
+  },
+
+  create_phone_qr: {
+    description:
+      "Create a QR code that initiates a phone call when scanned. The phone number is encoded directly in the QR code.",
+    inputSchema: z.object({
+      phone_number: z.string().describe("Phone number to call."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { phone_number, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "phone", phone_data: { phone_number }, ...rest },
+      });
+    },
+  },
+
+  create_event_qr: {
+    description:
+      "Create a QR code that adds a calendar event when scanned. Encodes a standard iCalendar VEVENT that calendar apps can import.",
+    inputSchema: z.object({
+      summary: z.string().describe("Event title/summary."),
+      start: z.string().describe("Event start date-time in ISO 8601 format (e.g. 2026-03-15T09:00:00Z)."),
+      end: z.string().describe("Event end date-time in ISO 8601 format."),
+      location: z.string().optional().describe("Event location."),
+      description: z.string().optional().describe("Event description."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { summary, start, end, location, description, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "event", event_data: { summary, start, end, location, description }, ...rest },
+      });
+    },
+  },
+
+  create_text_qr: {
+    description:
+      "Create a QR code that contains plain text. When scanned, the text is displayed directly. Useful for messages, notes, or any freeform content.",
+    inputSchema: z.object({
+      content: z.string().describe("Plain text content to encode."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { content, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "text", text_data: { content }, ...rest },
+      });
+    },
+  },
+
+  create_location_qr: {
+    description:
+      "Create a QR code that opens a map location when scanned. Encodes geographic coordinates that map apps can parse.",
+    inputSchema: z.object({
+      latitude: z.number().min(-90).max(90).describe("Geographic latitude (-90 to 90)."),
+      longitude: z.number().min(-180).max(180).describe("Geographic longitude (-180 to 180)."),
+      label: z.string().optional().describe("Human-readable place name (shown on map)."),
+      qr_label: z.string().optional().describe("Label for this QR code (internal)."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { latitude, longitude, label, qr_label, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "location", location_data: { latitude, longitude, label }, label: qr_label, ...rest },
+      });
+    },
+  },
+
+  create_social_qr: {
+    description:
+      "Create a QR code that links to social media profiles. When scanned via the short URL, returns a JSON object with all platform links. Provide at least one platform link.",
+    inputSchema: z.object({
+      facebook: z.string().optional().describe("Facebook profile/page URL."),
+      instagram: z.string().optional().describe("Instagram profile URL."),
+      twitter: z.string().optional().describe("Twitter/X profile URL."),
+      linkedin: z.string().optional().describe("LinkedIn profile URL."),
+      youtube: z.string().optional().describe("YouTube channel URL."),
+      tiktok: z.string().optional().describe("TikTok profile URL."),
+      github: z.string().optional().describe("GitHub profile URL."),
+      website: z.string().optional().describe("Personal/company website URL."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { facebook, instagram, twitter, linkedin, youtube, tiktok, github, website, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "social", social_data: { facebook, instagram, twitter, linkedin, youtube, tiktok, github, website }, ...rest },
+      });
+    },
+  },
+
+  create_app_store_qr: {
+    description:
+      "Create a QR code that redirects to the correct app store based on the device. iPhones go to the App Store, Android devices go to Google Play, and other devices go to the fallback URL. Provide at least one store URL.",
+    inputSchema: z.object({
+      ios_url: z.string().optional().describe("Apple App Store URL."),
+      android_url: z.string().optional().describe("Google Play Store URL."),
+      fallback_url: z.string().optional().describe("Fallback URL for non-mobile devices."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { ios_url, android_url, fallback_url, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: { type: "app_store", app_store_data: { ios_url, android_url, fallback_url }, ...rest },
+      });
+    },
+  },
+
+  update_social_qr: {
+    description:
+      "Update the social media links of a Social QR code. Partial updates merge with existing data.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the Social QR code to update."),
+      facebook: z.string().optional().describe("Facebook URL."),
+      instagram: z.string().optional().describe("Instagram URL."),
+      twitter: z.string().optional().describe("Twitter/X URL."),
+      linkedin: z.string().optional().describe("LinkedIn URL."),
+      youtube: z.string().optional().describe("YouTube URL."),
+      tiktok: z.string().optional().describe("TikTok URL."),
+      github: z.string().optional().describe("GitHub URL."),
+      website: z.string().optional().describe("Website URL."),
+      label: z.string().optional().describe("Update the label."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { short_id, label, ...socialFields } = input;
+      const body: Record<string, unknown> = { social_data: socialFields };
+      if (label !== undefined) body.label = label;
+      return apiRequest(`/api/qr/${short_id}`, { method: "PATCH", body });
+    },
+  },
+
+  update_app_store_qr: {
+    description:
+      "Update the app store URLs of an App Store QR code. Partial updates merge with existing data.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the App Store QR code to update."),
+      ios_url: z.string().optional().describe("Apple App Store URL."),
+      android_url: z.string().optional().describe("Google Play Store URL."),
+      fallback_url: z.string().optional().describe("Fallback URL."),
+      label: z.string().optional().describe("Update the label."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { short_id, label, ...appStoreFields } = input;
+      const body: Record<string, unknown> = { app_store_data: appStoreFields };
+      if (label !== undefined) body.label = label;
+      return apiRequest(`/api/qr/${short_id}`, { method: "PATCH", body });
+    },
+  },
+
   create_webhook: {
     description:
       "Register a webhook endpoint to receive real-time notifications when QR codes are scanned. Returns an HMAC-SHA256 secret for verifying webhook signatures — store it securely, it is only shown once.",

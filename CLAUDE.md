@@ -27,7 +27,7 @@ src/
 │   ├── index.ts           # better-sqlite3 + drizzle-orm init (WAL mode)
 │   └── migrate.ts         # Auto-migration on startup
 ├── shared/
-│   ├── types.ts           # QrFormat, QrType, VCardData, WiFiData, PaginatedResponse, Plan, PLAN_LIMITS, Fastify augmentation
+│   ├── types.ts           # QrFormat, QrType (11 types), all *Data interfaces, PaginatedResponse, Plan, PLAN_LIMITS, Fastify augmentation
 │   └── errors.ts          # Structured errors with code + hint (agent-friendly)
 ├── modules/
 │   ├── auth/              # X-API-Key auth plugin + key management
@@ -53,7 +53,7 @@ packages/
 - **Validation:** Zod + Fastify JSON Schema
 - **UA parsing:** `ua-parser-js` (device type, browser, OS extraction at scan time)
 - **Geo lookup:** `geoip-lite` (IP → country + city, MaxMind GeoLite2 embedded)
-- **Tests:** Vitest (110 integration tests)
+- **Tests:** Vitest (137 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -75,7 +75,7 @@ npm run key:list       # List API keys
 - **Multi-tenant isolation:** Every QR code is scoped to an `apiKeyId`. All queries filter by key.
 - **Agent-friendly errors:** Every error has `{ error, code, hint }` — the hint tells agents how to fix the issue.
 - **Dynamic links:** The QR image encodes the short URL (`/r/:shortId`), not the target. Changing target = same QR. (URL type only)
-- **QR types:** 3 types — `url` (default, redirect), `vcard` (contact card, QR encodes vCard 3.0 data directly), `wifi` (network credentials, QR encodes WIFI: string). vCard/WiFi data is stored in `type_data` JSON column. `/r/:shortId` serves .vcf download for vCard, JSON info for WiFi, redirect for URL.
+- **QR types:** 11 types — `url` (redirect), `vcard` (contact card), `wifi` (WiFi credentials), `email` (mailto:), `sms` (SMSTO:), `phone` (tel:), `event` (iCalendar), `text` (plain text), `location` (geo: URI), `social` (multi-platform links), `app_store` (smart iOS/Android redirect). Types are either direct-encoding (data in QR matrix, works offline) or redirect-based (QR encodes short URL, server handles routing). Type-specific data stored in `type_data` JSON column.
 - **Fire-and-forget analytics:** Scan recording doesn't block the redirect response.
 - **Enriched analytics:** User-agent parsed at scan time (device/browser/OS via ua-parser-js), IP geolocated (country/city via geoip-lite). Analytics endpoint returns aggregations: scans_by_day, top_devices, top_browsers, top_countries, top_referers. Supports `?period=7d|30d|90d|all`.
 - **Fire-and-forget webhooks:** Webhook dispatch on scan is async, never blocks redirect.
@@ -93,7 +93,7 @@ npm run key:list       # List API keys
 | Table | Purpose |
 |-------|---------|
 | `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
-| `qr_codes` | QR metadata, target URLs, format, type (url/vcard/wifi), type_data (JSON for vCard/WiFi), style_options (JSON), expires_at, scheduled_url/scheduled_at, tenant isolation via `api_key_id` |
+| `qr_codes` | QR metadata, target URLs, format, type (11 types), type_data (JSON for type-specific data), style_options (JSON), expires_at, scheduled_url/scheduled_at, tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP, device_type, browser, os, country, city |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |
@@ -101,7 +101,7 @@ npm run key:list       # List API keys
 ## API endpoints
 
 **Authenticated** (`X-API-Key` required):
-- `POST /api/qr` — create QR code (type: url/vcard/wifi, with optional style: colors, dot_style, corner_style, logo_url)
+- `POST /api/qr` — create QR code (11 types: url/vcard/wifi/email/sms/phone/event/text/location/social/app_store, with optional style)
 - `GET /api/qr` — list (paginated)
 - `GET /api/qr/:shortId` — get details
 - `PATCH /api/qr/:shortId` — update target/label

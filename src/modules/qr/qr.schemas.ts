@@ -11,10 +11,10 @@ export const qrCreateSchema = {
     properties: {
       type: {
         type: "string",
-        enum: ["url", "vcard", "wifi"],
+        enum: ["url", "vcard", "wifi", "email", "sms", "phone", "event", "text", "location", "social", "app_store"],
         default: "url",
         description:
-          "QR code type. 'url' (default): encodes a redirect short URL — destination can be changed without regenerating the QR image. 'vcard': encodes contact data directly — phones prompt to save the contact. 'wifi': encodes WiFi credentials directly — phones prompt to join the network.",
+          "QR code type. 'url' (default): redirect short URL. 'vcard': contact card. 'wifi': WiFi credentials. 'email': pre-filled email. 'sms': pre-filled SMS. 'phone': phone call. 'event': calendar event. 'text': plain text. 'location': geographic coordinates. 'social': social media links. 'app_store': smart app store redirect.",
       },
       target_url: {
         type: "string",
@@ -46,6 +46,82 @@ export const qrCreateSchema = {
           password: { type: "string", description: "WiFi password. Omit for open networks (encryption='nopass')." },
           encryption: { type: "string", enum: ["WPA", "WEP", "nopass"], default: "WPA", description: "Encryption type." },
           hidden: { type: "boolean", default: false, description: "Whether the network is hidden." },
+        },
+      },
+      email_data: {
+        type: "object",
+        description: "Email data for Email QR codes. Required when type='email'. At minimum, 'to' must be provided.",
+        properties: {
+          to: { type: "string", description: "Recipient email address." },
+          subject: { type: "string", description: "Email subject line." },
+          body: { type: "string", description: "Email body text." },
+          cc: { type: "string", description: "CC recipient(s)." },
+          bcc: { type: "string", description: "BCC recipient(s)." },
+        },
+      },
+      sms_data: {
+        type: "object",
+        description: "SMS data for SMS QR codes. Required when type='sms'. phone_number is required.",
+        properties: {
+          phone_number: { type: "string", description: "Phone number to send SMS to." },
+          message: { type: "string", description: "Pre-filled SMS message text." },
+        },
+      },
+      phone_data: {
+        type: "object",
+        description: "Phone data for Phone QR codes. Required when type='phone'. phone_number is required.",
+        properties: {
+          phone_number: { type: "string", description: "Phone number to call." },
+        },
+      },
+      event_data: {
+        type: "object",
+        description: "Calendar event data for Event QR codes. Required when type='event'. summary, start, and end are required.",
+        properties: {
+          summary: { type: "string", description: "Event title/summary." },
+          start: { type: "string", description: "Event start date-time in ISO 8601 format." },
+          end: { type: "string", description: "Event end date-time in ISO 8601 format." },
+          location: { type: "string", description: "Event location." },
+          description: { type: "string", description: "Event description." },
+        },
+      },
+      text_data: {
+        type: "object",
+        description: "Text data for plain Text QR codes. Required when type='text'. content is required.",
+        properties: {
+          content: { type: "string", description: "Plain text content to encode in the QR code." },
+        },
+      },
+      location_data: {
+        type: "object",
+        description: "Location data for Location QR codes. Required when type='location'. latitude and longitude are required.",
+        properties: {
+          latitude: { type: "number", description: "Geographic latitude (-90 to 90)." },
+          longitude: { type: "number", description: "Geographic longitude (-180 to 180)." },
+          label: { type: "string", description: "Human-readable place name." },
+        },
+      },
+      social_data: {
+        type: "object",
+        description: "Social media links for Social QR codes. Required when type='social'. At least one platform link must be provided.",
+        properties: {
+          facebook: { type: "string", description: "Facebook profile/page URL." },
+          instagram: { type: "string", description: "Instagram profile URL." },
+          twitter: { type: "string", description: "Twitter/X profile URL." },
+          linkedin: { type: "string", description: "LinkedIn profile URL." },
+          youtube: { type: "string", description: "YouTube channel URL." },
+          tiktok: { type: "string", description: "TikTok profile URL." },
+          github: { type: "string", description: "GitHub profile URL." },
+          website: { type: "string", description: "Personal/company website URL." },
+        },
+      },
+      app_store_data: {
+        type: "object",
+        description: "App store links for App Store QR codes. Required when type='app_store'. At least ios_url or android_url must be provided.",
+        properties: {
+          ios_url: { type: "string", description: "Apple App Store URL." },
+          android_url: { type: "string", description: "Google Play Store URL." },
+          fallback_url: { type: "string", description: "Fallback URL for non-mobile devices." },
         },
       },
       label: {
@@ -148,10 +224,18 @@ export const qrCreateSchema = {
           description:
             "The full short URL that the QR code points to. For type='url', scanning redirects here. For vcard/wifi, this URL serves as a fallback.",
         },
-        type: { type: "string", enum: ["url", "vcard", "wifi"], description: "QR code type." },
+        type: { type: "string", enum: ["url", "vcard", "wifi", "email", "sms", "phone", "event", "text", "location", "social", "app_store"], description: "QR code type." },
         target_url: { type: "string", nullable: true, description: "The current destination URL (type='url' only)." },
         vcard_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured contact data (type='vcard' only)." },
         wifi_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured WiFi credentials (type='wifi' only)." },
+        email_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured email data (type='email' only)." },
+        sms_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured SMS data (type='sms' only)." },
+        phone_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured phone data (type='phone' only)." },
+        event_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured event data (type='event' only)." },
+        text_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured text data (type='text' only)." },
+        location_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured location data (type='location' only)." },
+        social_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured social media links (type='social' only)." },
+        app_store_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured app store links (type='app_store' only)." },
         label: { type: "string", nullable: true, description: "Optional label." },
         format: { type: "string", description: "Image format (svg or png)." },
         image_data: {
@@ -212,7 +296,7 @@ export const qrBulkUpdateSchema = {
         type: "array",
         minItems: 1,
         maxItems: 50,
-        description: "Array of QR codes to update (max 50). Each item requires short_id plus target_url and/or label.",
+        description: "Array of QR codes to update (max 50). Each item requires short_id plus fields to update.",
         items: {
           type: "object" as const,
           required: ["short_id"],
@@ -220,6 +304,16 @@ export const qrBulkUpdateSchema = {
             short_id: { type: "string", description: "The short_id of the QR code to update." },
             target_url: { type: "string", description: "New destination URL." },
             label: { type: "string", description: "New label." },
+            vcard_data: { type: "object", additionalProperties: true },
+            wifi_data: { type: "object", additionalProperties: true },
+            email_data: { type: "object", additionalProperties: true },
+            sms_data: { type: "object", additionalProperties: true },
+            phone_data: { type: "object", additionalProperties: true },
+            event_data: { type: "object", additionalProperties: true },
+            text_data: { type: "object", additionalProperties: true },
+            location_data: { type: "object", additionalProperties: true },
+            social_data: { type: "object", additionalProperties: true },
+            app_store_data: { type: "object", additionalProperties: true },
             expires_at: { type: ["string", "null"], description: "ISO 8601 expiration date. Null to clear." },
             scheduled_url: { type: ["string", "null"], description: "Replacement URL. Null to cancel." },
             scheduled_at: { type: ["string", "null"], description: "ISO 8601 activation date. Null to cancel." },
@@ -354,6 +448,46 @@ export const qrUpdateSchema = {
           encryption: { type: "string", enum: ["WPA", "WEP", "nopass"] },
           hidden: { type: "boolean" },
         },
+      },
+      email_data: {
+        type: "object",
+        description: "Update email fields. Only valid for type='email' QR codes.",
+        properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" }, cc: { type: "string" }, bcc: { type: "string" } },
+      },
+      sms_data: {
+        type: "object",
+        description: "Update SMS fields. Only valid for type='sms' QR codes.",
+        properties: { phone_number: { type: "string" }, message: { type: "string" } },
+      },
+      phone_data: {
+        type: "object",
+        description: "Update phone fields. Only valid for type='phone' QR codes.",
+        properties: { phone_number: { type: "string" } },
+      },
+      event_data: {
+        type: "object",
+        description: "Update event fields. Only valid for type='event' QR codes.",
+        properties: { summary: { type: "string" }, start: { type: "string" }, end: { type: "string" }, location: { type: "string" }, description: { type: "string" } },
+      },
+      text_data: {
+        type: "object",
+        description: "Update text content. Only valid for type='text' QR codes.",
+        properties: { content: { type: "string" } },
+      },
+      location_data: {
+        type: "object",
+        description: "Update location fields. Only valid for type='location' QR codes.",
+        properties: { latitude: { type: "number" }, longitude: { type: "number" }, label: { type: "string" } },
+      },
+      social_data: {
+        type: "object",
+        description: "Update social media links. Only valid for type='social' QR codes.",
+        properties: { facebook: { type: "string" }, instagram: { type: "string" }, twitter: { type: "string" }, linkedin: { type: "string" }, youtube: { type: "string" }, tiktok: { type: "string" }, github: { type: "string" }, website: { type: "string" } },
+      },
+      app_store_data: {
+        type: "object",
+        description: "Update app store URLs. Only valid for type='app_store' QR codes.",
+        properties: { ios_url: { type: "string" }, android_url: { type: "string" }, fallback_url: { type: "string" } },
       },
       expires_at: {
         type: ["string", "null"],

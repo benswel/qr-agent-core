@@ -3,8 +3,8 @@ import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
-import { buildVCardString, buildWiFiString } from "./qr.content.js";
-import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData } from "../../shared/types.js";
+import { buildVCardString, buildWiFiString, buildEmailString, buildSMSString, buildPhoneString, buildEventString, buildTextString, buildLocationString } from "./qr.content.js";
+import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData } from "../../shared/types.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { qrCodes } = schema;
@@ -14,6 +14,14 @@ export interface CreateQrInput {
   target_url?: string;
   vcard_data?: VCardData;
   wifi_data?: WiFiData;
+  email_data?: EmailData;
+  sms_data?: SMSData;
+  phone_data?: PhoneData;
+  event_data?: EventData;
+  text_data?: TextData;
+  location_data?: LocationData;
+  social_data?: SocialData;
+  app_store_data?: AppStoreData;
   label?: string;
   format?: QrFormat;
   foreground_color?: string;
@@ -35,6 +43,14 @@ export interface UpdateQrInput {
   label?: string;
   vcard_data?: Partial<VCardData>;
   wifi_data?: Partial<WiFiData>;
+  email_data?: Partial<EmailData>;
+  sms_data?: Partial<SMSData>;
+  phone_data?: Partial<PhoneData>;
+  event_data?: Partial<EventData>;
+  text_data?: Partial<TextData>;
+  location_data?: Partial<LocationData>;
+  social_data?: Partial<SocialData>;
+  app_store_data?: Partial<AppStoreData>;
   expires_at?: string | null;
   scheduled_url?: string | null;
   scheduled_at?: string | null;
@@ -42,13 +58,21 @@ export interface UpdateQrInput {
 
 /** Determine the string to encode in the QR matrix based on type */
 function getQrContent(type: QrType, shortUrl: string, typeData: string | null): string {
-  if (type === "vcard" && typeData) {
-    return buildVCardString(JSON.parse(typeData) as VCardData);
+  if (!typeData) return shortUrl;
+  const data = JSON.parse(typeData);
+  switch (type) {
+    case "vcard": return buildVCardString(data as VCardData);
+    case "wifi": return buildWiFiString(data as WiFiData);
+    case "email": return buildEmailString(data as EmailData);
+    case "sms": return buildSMSString(data as SMSData);
+    case "phone": return buildPhoneString(data as PhoneData);
+    case "event": return buildEventString(data as EventData);
+    case "text": return buildTextString(data as TextData);
+    case "location": return buildLocationString(data as LocationData);
+    case "social": return shortUrl; // redirect-based
+    case "app_store": return shortUrl; // redirect-based
+    default: return shortUrl;
   }
-  if (type === "wifi" && typeData) {
-    return buildWiFiString(JSON.parse(typeData) as WiFiData);
-  }
-  return shortUrl;
 }
 
 /** Format a DB row into the API response shape */
@@ -65,6 +89,14 @@ function formatQrResponse(row: typeof qrCodes.$inferSelect) {
     target_url: type === "url" ? row.targetUrl : null,
     vcard_data: type === "vcard" ? typeData : null,
     wifi_data: type === "wifi" ? typeData : null,
+    email_data: type === "email" ? typeData : null,
+    sms_data: type === "sms" ? typeData : null,
+    phone_data: type === "phone" ? typeData : null,
+    event_data: type === "event" ? typeData : null,
+    text_data: type === "text" ? typeData : null,
+    location_data: type === "location" ? typeData : null,
+    social_data: type === "social" ? typeData : null,
+    app_store_data: type === "app_store" ? typeData : null,
     label: row.label,
     format: row.format,
     created_at: row.createdAt,
@@ -118,14 +150,24 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
   let targetUrl: string;
   let typeData: string | null = null;
 
-  if (type === "vcard") {
-    typeData = JSON.stringify(input.vcard_data);
-    targetUrl = shortUrl; // sentinel — redirect route handles vcard behavior
-  } else if (type === "wifi") {
-    typeData = JSON.stringify(input.wifi_data);
-    targetUrl = shortUrl; // sentinel
-  } else {
+  const typeDataMap: Record<string, unknown> = {
+    vcard: input.vcard_data,
+    wifi: input.wifi_data,
+    email: input.email_data,
+    sms: input.sms_data,
+    phone: input.phone_data,
+    event: input.event_data,
+    text: input.text_data,
+    location: input.location_data,
+    social: input.social_data,
+    app_store: input.app_store_data,
+  };
+
+  if (type === "url") {
     targetUrl = input.target_url!;
+  } else {
+    typeData = JSON.stringify(typeDataMap[type]);
+    targetUrl = shortUrl; // sentinel — redirect route handles type-specific behavior
   }
 
   const qrContent = getQrContent(type, shortUrl, typeData);
@@ -216,14 +258,12 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
     if (input.scheduled_at !== undefined) updateSet.scheduledAt = input.scheduled_at;
   }
 
-  // vCard/WiFi: merge partial updates into existing typeData
-  if (type === "vcard" && input.vcard_data) {
+  // Type-specific data: merge partial updates into existing typeData
+  const typeDataKey = `${type}_data` as keyof UpdateQrInput;
+  const inputData = input[typeDataKey] as Record<string, unknown> | undefined;
+  if (type !== "url" && inputData) {
     const current = existing.typeData ? JSON.parse(existing.typeData) : {};
-    updateSet.typeData = JSON.stringify({ ...current, ...input.vcard_data });
-  }
-  if (type === "wifi" && input.wifi_data) {
-    const current = existing.typeData ? JSON.parse(existing.typeData) : {};
-    updateSet.typeData = JSON.stringify({ ...current, ...input.wifi_data });
+    updateSet.typeData = JSON.stringify({ ...current, ...inputData });
   }
 
   const updated = db
@@ -315,14 +355,18 @@ export async function bulkCreateQrCodes(
     let targetUrl: string;
     let typeData: string | null = null;
 
-    if (type === "vcard") {
-      typeData = JSON.stringify(input.vcard_data);
-      targetUrl = shortUrl;
-    } else if (type === "wifi") {
-      typeData = JSON.stringify(input.wifi_data);
-      targetUrl = shortUrl;
-    } else {
+    const typeDataMap: Record<string, unknown> = {
+      vcard: input.vcard_data, wifi: input.wifi_data, email: input.email_data,
+      sms: input.sms_data, phone: input.phone_data, event: input.event_data,
+      text: input.text_data, location: input.location_data, social: input.social_data,
+      app_store: input.app_store_data,
+    };
+
+    if (type === "url") {
       targetUrl = input.target_url!;
+    } else {
+      typeData = JSON.stringify(typeDataMap[type]);
+      targetUrl = shortUrl;
     }
 
     const qrContent = getQrContent(type, shortUrl, typeData);
@@ -357,7 +401,7 @@ export async function bulkCreateQrCodes(
 }
 
 export function bulkUpdateQrCodes(
-  items: Array<{ short_id: string; target_url?: string; label?: string; vcard_data?: Partial<VCardData>; wifi_data?: Partial<WiFiData>; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }>,
+  items: Array<{ short_id: string; target_url?: string; label?: string; [key: string]: unknown }>,
   apiKeyId: number
 ) {
   let updated = 0;
@@ -390,13 +434,12 @@ export function bulkUpdateQrCodes(
       if (item.scheduled_url !== undefined) updateSet.scheduledUrl = item.scheduled_url;
       if (item.scheduled_at !== undefined) updateSet.scheduledAt = item.scheduled_at;
     }
-    if (type === "vcard" && item.vcard_data) {
+    // Type-specific data: merge partial updates
+    const typeDataKey = `${type}_data`;
+    const itemData = item[typeDataKey];
+    if (type !== "url" && itemData && typeof itemData === "object") {
       const current = existing.typeData ? JSON.parse(existing.typeData) : {};
-      updateSet.typeData = JSON.stringify({ ...current, ...item.vcard_data });
-    }
-    if (type === "wifi" && item.wifi_data) {
-      const current = existing.typeData ? JSON.parse(existing.typeData) : {};
-      updateSet.typeData = JSON.stringify({ ...current, ...item.wifi_data });
+      updateSet.typeData = JSON.stringify({ ...current, ...itemData as object });
     }
 
     db.update(qrCodes)

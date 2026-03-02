@@ -3,10 +3,10 @@ import { eq, and, gt, count } from "drizzle-orm";
 import { db, schema } from "../../db/index.js";
 import { recordScan } from "./redirect.service.js";
 import { dispatchScannedEvent } from "../webhooks/webhooks.service.js";
-import { buildVCardString, buildWiFiString } from "../qr/qr.content.js";
+import { buildVCardString, buildWiFiString, buildEmailString, buildIcsFile } from "../qr/qr.content.js";
 import { sendError, Errors } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
-import type { Plan, QrType, VCardData, WiFiData } from "../../shared/types.js";
+import type { Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData } from "../../shared/types.js";
 
 const { qrCodes, scanEvents, apiKeys } = schema;
 
@@ -150,6 +150,57 @@ export async function redirectRoutes(app: FastifyInstance) {
           hidden: data.hidden || false,
           hint: "This QR code contains WiFi credentials. Scan the QR image directly with your phone camera to auto-join the network.",
         });
+      }
+
+      if (type === "email" && row.typeData) {
+        const data: EmailData = JSON.parse(row.typeData);
+        const mailto = buildEmailString(data);
+        return reply.redirect(mailto);
+      }
+
+      if (type === "sms" && row.typeData) {
+        const data: SMSData = JSON.parse(row.typeData);
+        const smsUrl = `sms:${data.phone_number}${data.message ? "?body=" + encodeURIComponent(data.message) : ""}`;
+        return reply.redirect(smsUrl);
+      }
+
+      if (type === "phone" && row.typeData) {
+        const data: PhoneData = JSON.parse(row.typeData);
+        return reply.redirect(`tel:${data.phone_number}`);
+      }
+
+      if (type === "event" && row.typeData) {
+        const data: EventData = JSON.parse(row.typeData);
+        const ics = buildIcsFile(data);
+        return reply
+          .type("text/calendar")
+          .header("Content-Disposition", 'attachment; filename="event.ics"')
+          .send(ics);
+      }
+
+      if (type === "text" && row.typeData) {
+        const data: TextData = JSON.parse(row.typeData);
+        return reply.send({ type: "text", content: data.content });
+      }
+
+      if (type === "location" && row.typeData) {
+        const data: LocationData = JSON.parse(row.typeData);
+        const label = data.label ? encodeURIComponent(data.label) : "";
+        return reply.redirect(`https://www.google.com/maps?q=${data.latitude},${data.longitude}${label ? "&label=" + label : ""}`);
+      }
+
+      if (type === "social" && row.typeData) {
+        const data: SocialData = JSON.parse(row.typeData);
+        return reply.send({ type: "social", platforms: data });
+      }
+
+      if (type === "app_store" && row.typeData) {
+        const data: AppStoreData = JSON.parse(row.typeData);
+        const ua = request.headers["user-agent"] || "";
+        if (/iPhone|iPad|iPod/i.test(ua) && data.ios_url) return reply.redirect(data.ios_url);
+        if (/Android/i.test(ua) && data.android_url) return reply.redirect(data.android_url);
+        if (data.fallback_url) return reply.redirect(data.fallback_url);
+        return reply.send({ type: "app_store", ios_url: data.ios_url, android_url: data.android_url });
       }
 
       return reply.redirect(targetUrl);

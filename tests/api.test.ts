@@ -1802,3 +1802,416 @@ describe("QR Type Edge Cases", () => {
     expect(res.json().image_data).toBeTruthy();
   });
 });
+
+// ─── Email QR Codes ─────────────────────────────────────
+
+describe("Email QR Codes", () => {
+  let emailShortId: string;
+
+  it("should create an email QR code with to only", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "email",
+        email_data: { to: "hello@example.com" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    emailShortId = body.short_id;
+    expect(body.type).toBe("email");
+    expect(body.email_data.to).toBe("hello@example.com");
+    expect(body.target_url).toBeNull();
+  });
+
+  it("should create an email QR with all fields", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "email",
+        email_data: { to: "sales@acme.com", subject: "Quote", body: "Please send quote", cc: "boss@acme.com", bcc: "archive@acme.com" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().email_data.subject).toBe("Quote");
+  });
+
+  it("should reject email without to", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "email", email_data: { subject: "No recipient" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should redirect to mailto: on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${emailShortId}`,
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain("mailto:hello@example.com");
+  });
+});
+
+// ─── SMS QR Codes ───────────────────────────────────────
+
+describe("SMS QR Codes", () => {
+  let smsShortId: string;
+
+  it("should create an SMS QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "sms",
+        sms_data: { phone_number: "+33612345678", message: "Hello!" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    smsShortId = body.short_id;
+    expect(body.type).toBe("sms");
+    expect(body.sms_data.phone_number).toBe("+33612345678");
+  });
+
+  it("should reject SMS without phone_number", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "sms", sms_data: { message: "No phone" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should redirect to sms: on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${smsShortId}`,
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain("sms:+33612345678");
+  });
+});
+
+// ─── Phone QR Codes ─────────────────────────────────────
+
+describe("Phone QR Codes", () => {
+  let phoneShortId: string;
+
+  it("should create a phone QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "phone",
+        phone_data: { phone_number: "+33145678900" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    phoneShortId = body.short_id;
+    expect(body.type).toBe("phone");
+    expect(body.phone_data.phone_number).toBe("+33145678900");
+  });
+
+  it("should reject phone without phone_number", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "phone", phone_data: {} },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should redirect to tel: on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${phoneShortId}`,
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("tel:+33145678900");
+  });
+});
+
+// ─── Event QR Codes ─────────────────────────────────────
+
+describe("Event QR Codes", () => {
+  let eventShortId: string;
+
+  it("should create an event QR code with required fields", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "event",
+        event_data: {
+          summary: "Team Meeting",
+          start: "2026-03-15T09:00:00Z",
+          end: "2026-03-15T10:00:00Z",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    eventShortId = body.short_id;
+    expect(body.type).toBe("event");
+    expect(body.event_data.summary).toBe("Team Meeting");
+  });
+
+  it("should create event QR with all fields", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "event",
+        event_data: {
+          summary: "Conference",
+          start: "2026-06-01T09:00:00Z",
+          end: "2026-06-01T17:00:00Z",
+          location: "Paris Expo",
+          description: "Annual conference",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().event_data.location).toBe("Paris Expo");
+  });
+
+  it("should reject event without summary/start/end", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "event", event_data: { summary: "Incomplete" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should serve .ics file on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${eventShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/calendar");
+    expect(res.headers["content-disposition"]).toContain("event.ics");
+    expect(res.body).toContain("BEGIN:VCALENDAR");
+    expect(res.body).toContain("BEGIN:VEVENT");
+    expect(res.body).toContain("Team Meeting");
+  });
+});
+
+// ─── Text QR Codes ──────────────────────────────────────
+
+describe("Text QR Codes", () => {
+  let textShortId: string;
+
+  it("should create a text QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "text",
+        text_data: { content: "Hello World! This is a QR message." },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    textShortId = body.short_id;
+    expect(body.type).toBe("text");
+    expect(body.text_data.content).toBe("Hello World! This is a QR message.");
+  });
+
+  it("should reject text without content", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "text", text_data: {} },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should return JSON with content on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${textShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe("text");
+    expect(body.content).toBe("Hello World! This is a QR message.");
+  });
+});
+
+// ─── Location QR Codes ──────────────────────────────────
+
+describe("Location QR Codes", () => {
+  let locationShortId: string;
+
+  it("should create a location QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "location",
+        location_data: { latitude: 48.8566, longitude: 2.3522, label: "Paris" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    locationShortId = body.short_id;
+    expect(body.type).toBe("location");
+    expect(body.location_data.latitude).toBe(48.8566);
+    expect(body.location_data.longitude).toBe(2.3522);
+  });
+
+  it("should reject location without coordinates", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "location", location_data: { label: "Nowhere" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should redirect to Google Maps on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${locationShortId}`,
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toContain("google.com/maps");
+    expect(res.headers.location).toContain("48.8566");
+  });
+});
+
+// ─── Social QR Codes ────────────────────────────────────
+
+describe("Social QR Codes", () => {
+  let socialShortId: string;
+
+  it("should create a social QR code with multiple platforms", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "social",
+        social_data: {
+          twitter: "https://twitter.com/testuser",
+          linkedin: "https://linkedin.com/in/testuser",
+          github: "https://github.com/testuser",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    socialShortId = body.short_id;
+    expect(body.type).toBe("social");
+    expect(body.social_data.twitter).toBe("https://twitter.com/testuser");
+  });
+
+  it("should reject social without any platform link", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "social", social_data: {} },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should return JSON with platforms on GET /r/:shortId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${socialShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe("social");
+    expect(body.platforms.twitter).toBe("https://twitter.com/testuser");
+    expect(body.platforms.github).toBe("https://github.com/testuser");
+  });
+});
+
+// ─── App Store QR Codes ─────────────────────────────────
+
+describe("App Store QR Codes", () => {
+  let appStoreShortId: string;
+
+  it("should create an app store QR code", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "app_store",
+        app_store_data: {
+          ios_url: "https://apps.apple.com/app/id123",
+          android_url: "https://play.google.com/store/apps/details?id=com.example",
+          fallback_url: "https://example.com/app",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    appStoreShortId = body.short_id;
+    expect(body.type).toBe("app_store");
+    expect(body.app_store_data.ios_url).toBe("https://apps.apple.com/app/id123");
+  });
+
+  it("should reject app_store without any store URL", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "app_store", app_store_data: { fallback_url: "https://example.com" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should redirect to iOS App Store for iPhone user-agent", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${appStoreShortId}`,
+      headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" },
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://apps.apple.com/app/id123");
+  });
+
+  it("should redirect to Play Store for Android user-agent", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${appStoreShortId}`,
+      headers: { "user-agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8)" },
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://play.google.com/store/apps/details?id=com.example");
+  });
+});
