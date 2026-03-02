@@ -122,12 +122,6 @@ export function runMigrations() {
     // Column already exists — ignore
   }
 
-  // Create pro_waitlist table
-  db.run(sql`
-    CREATE TABLE IF NOT EXISTS pro_waitlist (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      created_at TEXT NOT NULL
-    )
-  `);
+  // Drop legacy pro_waitlist table (Pro is now live via Stripe)
+  db.run(sql`DROP TABLE IF EXISTS pro_waitlist`);
 }

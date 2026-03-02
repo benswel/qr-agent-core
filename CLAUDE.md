@@ -35,6 +35,7 @@ src/
 │   ├── redirect/          # GET /r/:shortId — public redirect + scan recording + webhook dispatch
 │   ├── analytics/         # GET /api/analytics/:shortId — scan stats
 │   ├── webhooks/          # Webhook CRUD + HMAC delivery + delivery logging
+│   ├── stripe/            # Stripe Checkout, Customer Portal, webhook handler
 │   ├── image/             # GET /i/:shortId — public QR image (cacheable)
 │   └── well-known/        # /.well-known/ai-plugin.json + mcp.json
 ├── cli/                   # key:create, key:list scripts
@@ -86,12 +87,11 @@ npm run key:list       # List API keys
 
 | Table | Purpose |
 |-------|---------|
-| `api_keys` | Key storage with label, email, plan (free/pro), expiration, last-used tracking |
+| `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
 | `qr_codes` | QR metadata, target URLs, format, style_options (JSON), tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |
-| `pro_waitlist` | Email collection for Pro plan launch notification |
 
 ## API endpoints
 
@@ -106,19 +106,20 @@ npm run key:list       # List API keys
 - `POST /api/webhooks` — register webhook endpoint (returns HMAC secret)
 - `GET /api/webhooks` — list webhooks
 - `DELETE /api/webhooks/:id` — delete webhook
-- `POST /api/register` — self-service API key registration (rate-limited, public)
 - `GET /api/usage` — current usage and quota for authenticated key
-- `POST /api/waitlist` — join Pro plan waitlist (public, rate-limited)
-
-**Admin** (`X-Admin-Secret` header required):
-- `GET /api/admin/keys` — list all registered API keys
-- `GET /api/admin/waitlist` — list all Pro waitlist entries
+- `POST /api/stripe/checkout` — create Stripe Checkout session to upgrade to Pro ($19/month)
+- `POST /api/stripe/portal` — open Stripe Customer Portal for billing management
 
 **Public** (no auth):
+- `POST /api/register` — self-service API key registration (rate-limited)
+- `POST /api/stripe/webhook` — Stripe webhook handler (signature-verified)
 - `GET /r/:shortId` — redirect (records scan)
 - `GET /i/:shortId` — serve QR image
 - `GET /health` — health check
 - `GET /documentation` — Swagger UI
+
+**Admin** (`X-Admin-Secret` header required):
+- `GET /api/admin/keys` — list all registered API keys
 
 ## Environment variables
 
@@ -130,6 +131,9 @@ npm run key:list       # List API keys
 | `DATABASE_URL` | `./data/qr-agent.db` | SQLite file path |
 | `SHORT_ID_LENGTH` | `8` | Short ID length |
 | `ADMIN_SECRET` | *(none)* | Secret for admin endpoints (`X-Admin-Secret` header) |
+| `STRIPE_SECRET_KEY` | *(none)* | Stripe API secret key (live or test) |
+| `STRIPE_WEBHOOK_SECRET` | *(none)* | Stripe webhook signing secret |
+| `STRIPE_PRICE_ID` | *(none)* | Stripe Price ID for Pro plan ($19/month) |
 
 ## Conventions
 

@@ -7,15 +7,11 @@ import { PLAN_LIMITS } from "../../shared/types.js";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 
-const { apiKeys, qrCodes, scanEvents, webhooks, proWaitlist } = schema;
+const { apiKeys, qrCodes, scanEvents, webhooks } = schema;
 
 const registerBodySchema = z.object({
   email: z.string().email(),
   label: z.string().max(100).optional(),
-});
-
-const waitlistBodySchema = z.object({
-  email: z.string().email(),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -220,83 +216,6 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // POST /api/waitlist — join Pro plan waitlist (public, rate-limited)
-  app.post(
-    "/api/waitlist",
-    {
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: "1 hour",
-        },
-        public: true,
-      },
-      schema: {
-        tags: ["Auth"],
-        summary: "Join the Pro plan waitlist",
-        description:
-          "Submit your email to be notified when the Pro plan launches. Rate-limited to 5 requests per hour per IP.",
-        body: {
-          type: "object" as const,
-          required: ["email"],
-          properties: {
-            email: {
-              type: "string",
-              format: "email",
-              description: "Your email address.",
-            },
-          },
-        },
-        response: {
-          201: {
-            type: "object",
-            properties: {
-              message: { type: "string" },
-            },
-          },
-          200: {
-            type: "object",
-            properties: {
-              message: { type: "string" },
-            },
-          },
-        },
-      },
-    },
-    async (request, reply) => {
-      const parsed = waitlistBodySchema.safeParse(request.body);
-
-      if (!parsed.success) {
-        return sendError(reply, 400, {
-          error: "Invalid request body.",
-          code: "VALIDATION_ERROR",
-          hint: "Provide a valid email address in the 'email' field.",
-        });
-      }
-
-      const { email } = parsed.data;
-
-      // Check if already on the waitlist
-      const existing = db
-        .select()
-        .from(proWaitlist)
-        .where(eq(proWaitlist.email, email))
-        .get();
-
-      if (existing) {
-        return reply.status(200).send({
-          message: "You're already on the list! We'll notify you when Pro launches.",
-        });
-      }
-
-      db.insert(proWaitlist).values({ email }).run();
-
-      return reply.status(201).send({
-        message: "You're on the list! We'll notify you when Pro launches.",
-      });
-    }
-  );
-
   // --- Admin endpoints (protected by ADMIN_SECRET) ---
 
   function checkAdminSecret(request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) {
@@ -341,19 +260,4 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  app.get(
-    "/api/admin/waitlist",
-    { schema: { tags: ["Admin"], summary: "List all Pro waitlist entries", hide: true } },
-    async (request, reply) => {
-      const denied = checkAdminSecret(request, reply);
-      if (denied) return denied;
-
-      const entries = db
-        .select()
-        .from(proWaitlist)
-        .all();
-
-      return { count: entries.length, entries };
-    }
-  );
 }

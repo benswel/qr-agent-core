@@ -111,14 +111,3 @@ export type Webhook = typeof webhooks.$inferSelect;
 export type NewWebhook = typeof webhooks.$inferInsert;
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type NewWebhookDelivery = typeof webhookDeliveries.$inferInsert;
-
-/**
- * Pro plan waitlist: collects emails of users interested in the Pro plan.
- */
-export const proWaitlist = sqliteTable("pro_waitlist", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  email: text("email").notNull().unique(),
-  createdAt: text("created_at")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-});
