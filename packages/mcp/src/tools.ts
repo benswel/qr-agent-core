@@ -68,6 +68,19 @@ export const tools = {
         .max(0.3)
         .optional()
         .describe("Logo size as ratio of QR width (0.15-0.3). Default: 0.2."),
+      expires_at: z
+        .string()
+        .optional()
+        .describe("ISO 8601 date-time. After this date, scanning returns 410 Gone instead of redirecting."),
+      scheduled_url: z
+        .string()
+        .url()
+        .optional()
+        .describe("Replacement URL that activates at scheduled_at."),
+      scheduled_at: z
+        .string()
+        .optional()
+        .describe("ISO 8601 date-time when target automatically switches to scheduled_url."),
     }),
     handler: async (input: Record<string, unknown>) => {
       return apiRequest("/api/qr", { method: "POST", body: input });
@@ -98,11 +111,31 @@ export const tools = {
         .string()
         .optional()
         .describe("Optionally update the label too."),
+      expires_at: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("ISO 8601 expiration date. Set to null to remove expiration."),
+      scheduled_url: z
+        .string()
+        .url()
+        .nullable()
+        .optional()
+        .describe("Scheduled replacement URL. Set to null to cancel."),
+      scheduled_at: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("ISO 8601 activation date for scheduled_url. Set to null to cancel."),
     }),
-    handler: async (input: { short_id: string; target_url: string; label?: string }) => {
+    handler: async (input: { short_id: string; target_url: string; label?: string; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }) => {
+      const body: Record<string, unknown> = { target_url: input.target_url, label: input.label };
+      if (input.expires_at !== undefined) body.expires_at = input.expires_at;
+      if (input.scheduled_url !== undefined) body.scheduled_url = input.scheduled_url;
+      if (input.scheduled_at !== undefined) body.scheduled_at = input.scheduled_at;
       return apiRequest(`/api/qr/${input.short_id}`, {
         method: "PATCH",
-        body: { target_url: input.target_url, label: input.label },
+        body,
       });
     },
   },
@@ -156,6 +189,9 @@ export const tools = {
             dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
             corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
             logo_url: z.string().optional().describe("Logo URL or data URI."),
+            expires_at: z.string().optional().describe("ISO 8601 expiration date."),
+            scheduled_url: z.string().url().optional().describe("Replacement URL activated at scheduled_at."),
+            scheduled_at: z.string().optional().describe("ISO 8601 activation date for scheduled_url."),
           })
         )
         .min(1)
@@ -177,6 +213,9 @@ export const tools = {
             short_id: z.string().describe("The short_id of the QR code to update."),
             target_url: z.string().url().optional().describe("New destination URL."),
             label: z.string().optional().describe("New label."),
+            expires_at: z.string().nullable().optional().describe("ISO 8601 expiration date. Null to clear."),
+            scheduled_url: z.string().url().nullable().optional().describe("Replacement URL. Null to cancel."),
+            scheduled_at: z.string().nullable().optional().describe("ISO 8601 activation date. Null to cancel."),
           })
         )
         .min(1)

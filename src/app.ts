@@ -37,7 +37,7 @@ export async function buildApp() {
   await app.register(cors, { origin: true });
 
   // Rate limiting — global baseline, individual routes can override
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+  await app.register(rateLimit, { max: isTest ? 10_000 : 100, timeWindow: "1 minute" });
 
   // Swagger / OpenAPI — the self-documentation layer
   await app.register(swagger, {

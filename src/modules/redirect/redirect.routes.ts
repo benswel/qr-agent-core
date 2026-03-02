@@ -41,6 +41,31 @@ export async function redirectRoutes(app: FastifyInstance) {
         return sendError(reply, 404, Errors.notFound("Short URL", shortId));
       }
 
+      // Check expiration
+      if (row.expiresAt && new Date(row.expiresAt) <= new Date()) {
+        return reply.code(410).send({
+          error: "QR code has expired",
+          code: "QR_EXPIRED",
+          expired_at: row.expiresAt,
+          hint: "This QR code is no longer active. The owner can remove or extend the expiration via the API.",
+        });
+      }
+
+      // Lazy scheduled URL swap
+      let targetUrl = row.targetUrl;
+      if (row.scheduledUrl && row.scheduledAt && new Date(row.scheduledAt) <= new Date()) {
+        db.update(qrCodes)
+          .set({
+            targetUrl: row.scheduledUrl,
+            scheduledUrl: null,
+            scheduledAt: null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(qrCodes.id, row.id))
+          .run();
+        targetUrl = row.scheduledUrl;
+      }
+
       const scanData = {
         userAgent: request.headers["user-agent"],
         referer: request.headers["referer"],
@@ -103,7 +128,7 @@ export async function redirectRoutes(app: FastifyInstance) {
         });
       }
 
-      return reply.redirect(row.targetUrl);
+      return reply.redirect(targetUrl);
     }
   );
 }

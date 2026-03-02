@@ -41,6 +41,9 @@ export const qrCodes = sqliteTable("qr_codes", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
+  expiresAt: text("expires_at"),
+  scheduledUrl: text("scheduled_url"),
+  scheduledAt: text("scheduled_at"),
 });
 
 /**

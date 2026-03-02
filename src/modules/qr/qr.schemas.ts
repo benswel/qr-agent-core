@@ -82,6 +82,21 @@ export const qrCreateSchema = {
         default: 0.2,
         description: "Logo size as a ratio of QR code width (0.15 to 0.3). Default: 0.2 (20% of width).",
       },
+      expires_at: {
+        type: "string",
+        description:
+          "ISO 8601 date-time. After this date, scanning the QR code returns 410 Gone instead of redirecting. Use this for time-limited promotions, events, or temporary links. Can be removed later via PATCH (set to null).",
+      },
+      scheduled_url: {
+        type: "string",
+        description:
+          "A replacement destination URL. When scheduled_at is reached, the QR code automatically switches from target_url to this URL. Requires scheduled_at to be set.",
+      },
+      scheduled_at: {
+        type: "string",
+        description:
+          "ISO 8601 date-time. When this date is reached, the QR code's target automatically switches to scheduled_url. The swap happens lazily on the next scan. Requires scheduled_url to be set.",
+      },
     },
   },
   response: {
@@ -109,6 +124,9 @@ export const qrCreateSchema = {
             'The QR code image. For SVG format: raw SVG XML string. For PNG format: base64-encoded binary data (prefix with "data:image/png;base64," to use as a data URI).',
         },
         created_at: { type: "string", description: "ISO 8601 creation timestamp." },
+        expires_at: { type: "string", nullable: true, description: "ISO 8601 expiration date, or null if no expiration." },
+        scheduled_url: { type: "string", nullable: true, description: "Scheduled replacement URL, or null." },
+        scheduled_at: { type: "string", nullable: true, description: "ISO 8601 activation date for scheduled_url, or null." },
       },
     },
   },
@@ -167,6 +185,9 @@ export const qrBulkUpdateSchema = {
             short_id: { type: "string", description: "The short_id of the QR code to update." },
             target_url: { type: "string", description: "New destination URL." },
             label: { type: "string", description: "New label." },
+            expires_at: { type: ["string", "null"], description: "ISO 8601 expiration date. Null to clear." },
+            scheduled_url: { type: ["string", "null"], description: "Replacement URL. Null to cancel." },
+            scheduled_at: { type: ["string", "null"], description: "ISO 8601 activation date. Null to cancel." },
           },
         },
       },
@@ -273,6 +294,18 @@ export const qrUpdateSchema = {
       label: {
         type: "string",
         description: "Updated label for the QR code.",
+      },
+      expires_at: {
+        type: ["string", "null"],
+        description: "ISO 8601 expiration date. Set to null to remove expiration.",
+      },
+      scheduled_url: {
+        type: ["string", "null"],
+        description: "Replacement URL activated at scheduled_at. Set to null to cancel.",
+      },
+      scheduled_at: {
+        type: ["string", "null"],
+        description: "ISO 8601 activation date for scheduled_url. Set to null to cancel.",
       },
     },
   },

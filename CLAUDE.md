@@ -51,7 +51,7 @@ packages/
 - **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (72 integration tests)
+- **Tests:** Vitest (84 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -77,6 +77,7 @@ npm run key:list       # List API keys
 - **Fire-and-forget webhooks:** Webhook dispatch on scan is async, never blocks redirect.
 - **Custom QR rendering:** Custom SVG renderer with dot styles (square, rounded, dots, classy-rounded), corner styles (square, extra-rounded, dot), colors, logo embedding. Style options stored as JSON in DB for regeneration.
 - **Webhook security:** HMAC-SHA256 signatures on all webhook deliveries. Secret only returned at creation time.
+- **Expiration & scheduling:** QR codes support `expires_at` (returns 410 Gone after date) and `scheduled_url`/`scheduled_at` (lazy URL swap on next scan). Both checked at redirect time — no cron needed.
 - **Public vs authenticated:** `/r/`, `/i/`, `/health`, `/.well-known` are public. `/api/*` requires auth.
 - **MCP server is standalone:** The `packages/mcp/` package is a thin HTTP client. It doesn't import API code.
 - **Plan-based quotas:** API keys have a `plan` column (free/pro). Limits defined in `PLAN_LIMITS` (shared/types.ts). Free: 10 QR, 1K scans/month, 1 webhook. Pro: unlimited.
@@ -88,7 +89,7 @@ npm run key:list       # List API keys
 | Table | Purpose |
 |-------|---------|
 | `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
-| `qr_codes` | QR metadata, target URLs, format, style_options (JSON), tenant isolation via `api_key_id` |
+| `qr_codes` | QR metadata, target URLs, format, style_options (JSON), expires_at, scheduled_url/scheduled_at, tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |

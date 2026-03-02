@@ -21,11 +21,17 @@ export interface CreateQrInput {
   corner_style?: string;
   logo_url?: string;
   logo_size?: number;
+  expires_at?: string;
+  scheduled_url?: string;
+  scheduled_at?: string;
 }
 
 export interface UpdateQrInput {
   target_url?: string;
   label?: string;
+  expires_at?: string | null;
+  scheduled_url?: string | null;
+  scheduled_at?: string | null;
 }
 
 function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
@@ -76,6 +82,9 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
       format,
       styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
       apiKeyId,
+      expiresAt: input.expires_at || null,
+      scheduledUrl: input.scheduled_url || null,
+      scheduledAt: input.scheduled_at || null,
     })
     .returning()
     .get();
@@ -89,6 +98,9 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
     format: inserted.format,
     image_data: imageData,
     created_at: inserted.createdAt,
+    expires_at: inserted.expiresAt,
+    scheduled_url: inserted.scheduledUrl,
+    scheduled_at: inserted.scheduledAt,
   };
 }
 
@@ -110,6 +122,9 @@ export function getQrCode(shortId: string, apiKeyId: number) {
     format: row.format,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
+    expires_at: row.expiresAt,
+    scheduled_url: row.scheduledUrl,
+    scheduled_at: row.scheduledAt,
   };
 }
 
@@ -138,6 +153,9 @@ export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: nu
       format: row.format,
       created_at: row.createdAt,
       updated_at: row.updatedAt,
+      expires_at: row.expiresAt,
+      scheduled_url: row.scheduledUrl,
+      scheduled_at: row.scheduledAt,
     })),
     total,
     offset,
@@ -159,6 +177,9 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
     .set({
       ...(input.target_url !== undefined && { targetUrl: input.target_url }),
       ...(input.label !== undefined && { label: input.label }),
+      ...(input.expires_at !== undefined && { expiresAt: input.expires_at }),
+      ...(input.scheduled_url !== undefined && { scheduledUrl: input.scheduled_url }),
+      ...(input.scheduled_at !== undefined && { scheduledAt: input.scheduled_at }),
       updatedAt: new Date().toISOString(),
     })
     .where(eq(qrCodes.shortId, shortId))
@@ -174,6 +195,9 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
     format: updated.format,
     created_at: updated.createdAt,
     updated_at: updated.updatedAt,
+    expires_at: updated.expiresAt,
+    scheduled_url: updated.scheduledUrl,
+    scheduled_at: updated.scheduledAt,
   };
 }
 
@@ -261,6 +285,9 @@ export async function bulkCreateQrCodes(
         format,
         styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
         apiKeyId,
+        expiresAt: input.expires_at || null,
+        scheduledUrl: input.scheduled_url || null,
+        scheduledAt: input.scheduled_at || null,
       })
       .returning()
       .get();
@@ -274,6 +301,9 @@ export async function bulkCreateQrCodes(
       format: inserted.format,
       image_data: imageData,
       created_at: inserted.createdAt,
+      expires_at: inserted.expiresAt,
+      scheduled_url: inserted.scheduledUrl,
+      scheduled_at: inserted.scheduledAt,
     });
   }
 
@@ -281,7 +311,7 @@ export async function bulkCreateQrCodes(
 }
 
 export function bulkUpdateQrCodes(
-  items: Array<{ short_id: string; target_url?: string; label?: string }>,
+  items: Array<{ short_id: string; target_url?: string; label?: string; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }>,
   apiKeyId: number
 ) {
   let updated = 0;
@@ -305,6 +335,9 @@ export function bulkUpdateQrCodes(
       .set({
         ...(item.target_url !== undefined && { targetUrl: item.target_url }),
         ...(item.label !== undefined && { label: item.label }),
+        ...(item.expires_at !== undefined && { expiresAt: item.expires_at }),
+        ...(item.scheduled_url !== undefined && { scheduledUrl: item.scheduled_url }),
+        ...(item.scheduled_at !== undefined && { scheduledAt: item.scheduled_at }),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(qrCodes.shortId, item.short_id))

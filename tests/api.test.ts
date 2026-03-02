@@ -1138,3 +1138,188 @@ describe("Admin Endpoints", () => {
   });
 
 });
+
+// ─── Expiration & Scheduling ──────────────────────────
+
+describe("Expiration & Scheduling", () => {
+  it("should return 410 for expired QR codes", async () => {
+    const pastDate = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://expired-promo.example.com",
+        label: "Expired promo",
+        expires_at: pastDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const { short_id } = createRes.json();
+
+    const redirectRes = await app.inject({
+      method: "GET",
+      url: `/r/${short_id}`,
+    });
+    expect(redirectRes.statusCode).toBe(410);
+    const body = redirectRes.json();
+    expect(body.code).toBe("QR_EXPIRED");
+    expect(body.expired_at).toBe(pastDate);
+  });
+
+  it("should redirect normally for non-expired QR codes", async () => {
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString(); // +24h
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://active-promo.example.com",
+        expires_at: futureDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const { short_id } = createRes.json();
+
+    const redirectRes = await app.inject({
+      method: "GET",
+      url: `/r/${short_id}`,
+    });
+    expect(redirectRes.statusCode).toBe(302);
+    expect(redirectRes.headers.location).toBe("https://active-promo.example.com");
+  });
+
+  it("should set and clear expires_at via PATCH", async () => {
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { target_url: "https://patch-expiry.example.com" },
+    });
+    const { short_id } = createRes.json();
+
+    // Set expiration
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString();
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${short_id}`,
+      headers: { "x-api-key": apiKey },
+      payload: { expires_at: futureDate },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().expires_at).toBe(futureDate);
+
+    // Clear expiration
+    const clearRes = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${short_id}`,
+      headers: { "x-api-key": apiKey },
+      payload: { expires_at: null },
+    });
+    expect(clearRes.statusCode).toBe(200);
+    expect(clearRes.json().expires_at).toBeNull();
+  });
+
+  it("should swap URL lazily when scheduled_at is in the past", async () => {
+    const pastDate = new Date(Date.now() - 60_000).toISOString();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://original-url.example.com",
+        scheduled_url: "https://new-url.example.com",
+        scheduled_at: pastDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const { short_id } = createRes.json();
+
+    // First scan triggers the swap
+    const redirectRes = await app.inject({
+      method: "GET",
+      url: `/r/${short_id}`,
+    });
+    expect(redirectRes.statusCode).toBe(302);
+    expect(redirectRes.headers.location).toBe("https://new-url.example.com");
+
+    // Verify swap persisted in DB
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/api/qr/${short_id}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const qr = getRes.json();
+    expect(qr.target_url).toBe("https://new-url.example.com");
+    expect(qr.scheduled_url).toBeNull();
+    expect(qr.scheduled_at).toBeNull();
+  });
+
+  it("should NOT swap URL when scheduled_at is in the future", async () => {
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://current-url.example.com",
+        scheduled_url: "https://future-url.example.com",
+        scheduled_at: futureDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const { short_id } = createRes.json();
+
+    const redirectRes = await app.inject({
+      method: "GET",
+      url: `/r/${short_id}`,
+    });
+    expect(redirectRes.statusCode).toBe(302);
+    expect(redirectRes.headers.location).toBe("https://current-url.example.com");
+  });
+
+  it("should return scheduling fields in create response", async () => {
+    const futureDate = new Date(Date.now() + 86_400_000).toISOString();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://fields-test.example.com",
+        expires_at: futureDate,
+        scheduled_url: "https://scheduled-test.example.com",
+        scheduled_at: futureDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const body = createRes.json();
+    expect(body.expires_at).toBe(futureDate);
+    expect(body.scheduled_url).toBe("https://scheduled-test.example.com");
+    expect(body.scheduled_at).toBe(futureDate);
+  });
+
+  it("should prioritize expiration over scheduled swap", async () => {
+    const pastDate = new Date(Date.now() - 60_000).toISOString();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://expired-with-swap.example.com",
+        expires_at: pastDate,
+        scheduled_url: "https://should-not-reach.example.com",
+        scheduled_at: pastDate,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const { short_id } = createRes.json();
+
+    const redirectRes = await app.inject({
+      method: "GET",
+      url: `/r/${short_id}`,
+    });
+    // Should be 410 (expired), NOT a redirect to scheduled_url
+    expect(redirectRes.statusCode).toBe(410);
+    expect(redirectRes.json().code).toBe("QR_EXPIRED");
+  });
+});
