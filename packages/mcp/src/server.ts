@@ -14,7 +14,7 @@ import { tools } from "./tools.js";
  */
 const server = new McpServer({
   name: "qr-for-agent",
-  version: "0.9.0",
+  version: "0.10.0",
 });
 
 // Register each tool from our definitions

@@ -46,6 +46,9 @@ export const qrCodes = sqliteTable("qr_codes", {
   scheduledAt: text("scheduled_at"),
   type: text("type").notNull().default("url"),
   typeData: text("type_data"),
+  utmParams: text("utm_params"),
+  gtmContainerId: text("gtm_container_id"),
+  redirectRules: text("redirect_rules"),
 });
 
 /**

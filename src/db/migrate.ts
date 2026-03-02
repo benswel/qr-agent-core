@@ -185,6 +185,25 @@ export function runMigrations() {
     // Column already exists — ignore
   }
 
+  // Migration: add UTM, GTM, and conditional redirect columns to qr_codes
+  try {
+    db.run(sql`ALTER TABLE qr_codes ADD COLUMN utm_params TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE qr_codes ADD COLUMN gtm_container_id TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE qr_codes ADD COLUMN redirect_rules TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Drop legacy pro_waitlist table (Pro is now live via Stripe)
   db.run(sql`DROP TABLE IF EXISTS pro_waitlist`);
 }

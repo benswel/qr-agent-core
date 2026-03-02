@@ -2,11 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { eq, and, gt, count } from "drizzle-orm";
 import { db, schema } from "../../db/index.js";
 import { recordScan } from "./redirect.service.js";
+import { parseRequest, applyUtmParams, evaluateRules, buildGtmPage } from "./redirect.utils.js";
 import { dispatchScannedEvent } from "../webhooks/webhooks.service.js";
 import { buildVCardString, buildWiFiString, buildEmailString, buildIcsFile } from "../qr/qr.content.js";
 import { sendError, Errors } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
-import type { Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData } from "../../shared/types.js";
+import type { Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData, UtmParams, RedirectRule } from "../../shared/types.js";
 
 const { qrCodes, scanEvents, apiKeys } = schema;
 
@@ -67,6 +68,13 @@ export async function redirectRoutes(app: FastifyInstance) {
         targetUrl = row.scheduledUrl;
       }
 
+      // Parse request once (reused for rules + scan recording)
+      const parsed = parseRequest(
+        request.headers["user-agent"],
+        request.ip,
+        request.headers["accept-language"]
+      );
+
       const scanData = {
         userAgent: request.headers["user-agent"],
         referer: request.headers["referer"],
@@ -106,9 +114,9 @@ export async function redirectRoutes(app: FastifyInstance) {
         }
       }
 
-      // Record the scan (fire-and-forget) — skip if over quota
+      // Record the scan (fire-and-forget, pass pre-parsed data) — skip if over quota
       if (shouldRecord) {
-        recordScan(row.id, scanData);
+        recordScan(row.id, scanData, parsed);
       }
 
       // Dispatch webhook notifications (fire-and-forget)
@@ -203,7 +211,30 @@ export async function redirectRoutes(app: FastifyInstance) {
         return reply.send({ type: "app_store", ios_url: data.ios_url, android_url: data.android_url });
       }
 
-      return reply.redirect(targetUrl);
+      // --- URL type: apply rules → UTM → GTM page or 302 ---
+
+      let finalUrl = targetUrl;
+
+      // Evaluate conditional redirect rules (top-to-bottom, first match wins)
+      if (row.redirectRules) {
+        const rules: RedirectRule[] = JSON.parse(row.redirectRules);
+        const ruleMatch = evaluateRules(rules, parsed);
+        if (ruleMatch) finalUrl = ruleMatch;
+      }
+
+      // Append UTM parameters
+      if (row.utmParams) {
+        const utm: UtmParams = JSON.parse(row.utmParams);
+        finalUrl = applyUtmParams(finalUrl, utm);
+      }
+
+      // GTM intermediate page or direct 302
+      if (row.gtmContainerId) {
+        const html = buildGtmPage(finalUrl, row.gtmContainerId);
+        return reply.type("text/html").send(html);
+      }
+
+      return reply.redirect(finalUrl);
     }
   );
 }

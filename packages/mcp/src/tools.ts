@@ -81,6 +81,11 @@ export const tools = {
         .string()
         .optional()
         .describe("ISO 8601 date-time when target automatically switches to scheduled_url."),
+      gtm_container_id: z
+        .string()
+        .regex(/^GTM-[A-Z0-9]+$/)
+        .optional()
+        .describe("Google Tag Manager container ID (e.g. 'GTM-ABC123'). Enables GTM tracking on QR scans via an intermediate HTML page."),
     }),
     handler: async (input: Record<string, unknown>) => {
       return apiRequest("/api/qr", { method: "POST", body: input });
@@ -127,12 +132,19 @@ export const tools = {
         .nullable()
         .optional()
         .describe("ISO 8601 activation date for scheduled_url. Set to null to cancel."),
+      gtm_container_id: z
+        .string()
+        .regex(/^GTM-[A-Z0-9]+$/)
+        .nullable()
+        .optional()
+        .describe("Google Tag Manager container ID. Set to null to remove GTM tracking."),
     }),
-    handler: async (input: { short_id: string; target_url: string; label?: string; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }) => {
+    handler: async (input: { short_id: string; target_url: string; label?: string; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null; gtm_container_id?: string | null }) => {
       const body: Record<string, unknown> = { target_url: input.target_url, label: input.label };
       if (input.expires_at !== undefined) body.expires_at = input.expires_at;
       if (input.scheduled_url !== undefined) body.scheduled_url = input.scheduled_url;
       if (input.scheduled_at !== undefined) body.scheduled_at = input.scheduled_at;
+      if (input.gtm_container_id !== undefined) body.gtm_container_id = input.gtm_container_id;
       return apiRequest(`/api/qr/${input.short_id}`, {
         method: "PATCH",
         body,
@@ -668,6 +680,58 @@ export const tools = {
     inputSchema: z.object({}),
     handler: async () => {
       return apiRequest("/api/stripe/portal", { method: "POST" });
+    },
+  },
+
+  // --- UTM & Redirect tools ---
+
+  set_utm_params: {
+    description:
+      "Set UTM tracking parameters on a URL QR code. These parameters are automatically appended to the target URL on every scan redirect. Use this to track QR code scans in Google Analytics or other analytics tools. Set 'clear' to true to remove all UTM parameters.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the QR code (must be type='url')."),
+      source: z.string().optional().describe("utm_source value (e.g. 'flyer', 'email', 'poster')."),
+      medium: z.string().optional().describe("utm_medium value (e.g. 'print', 'qr', 'social')."),
+      campaign: z.string().optional().describe("utm_campaign value (e.g. 'summer_2026')."),
+      term: z.string().optional().describe("utm_term value (paid search keyword)."),
+      content: z.string().optional().describe("utm_content value (A/B test variant)."),
+      clear: z.boolean().optional().describe("Set to true to remove all UTM parameters from this QR code."),
+    }),
+    handler: async (input: { short_id: string; source?: string; medium?: string; campaign?: string; term?: string; content?: string; clear?: boolean }) => {
+      const body: Record<string, unknown> = {};
+      if (input.clear) {
+        body.utm_params = null;
+      } else {
+        const utm: Record<string, string> = {};
+        if (input.source) utm.source = input.source;
+        if (input.medium) utm.medium = input.medium;
+        if (input.campaign) utm.campaign = input.campaign;
+        if (input.term) utm.term = input.term;
+        if (input.content) utm.content = input.content;
+        body.utm_params = utm;
+      }
+      return apiRequest(`/api/qr/${input.short_id}`, { method: "PATCH", body });
+    },
+  },
+
+  set_redirect_rules: {
+    description:
+      "Set conditional redirect rules on a URL QR code. Rules are evaluated top-to-bottom on each scan; the first matching rule's URL is used. If no rule matches, the default target_url applies. Conditions: 'device' (mobile/tablet/desktop), 'os' (iOS/Android/Windows/macOS/Linux), 'country' (ISO alpha-2 like 'FR'), 'language' (ISO 639-1 like 'fr'), 'time_range' ({start:'09:00',end:'17:00',timezone:'Europe/Paris'}), 'ab_split' ({percentage:50}). Pass an empty array to remove all rules.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the QR code (must be type='url')."),
+      rules: z.array(z.object({
+        condition: z.object({
+          type: z.enum(["device", "os", "country", "language", "time_range", "ab_split"]).describe("Condition type."),
+          value: z.unknown().describe("Condition value. String for device/os/country/language. Object for time_range and ab_split."),
+        }),
+        target_url: z.string().url().describe("URL to redirect to when this rule matches."),
+      })).describe("Array of redirect rules. Empty array to clear all rules."),
+    }),
+    handler: async (input: { short_id: string; rules: unknown[] }) => {
+      const body: Record<string, unknown> = {
+        redirect_rules: input.rules.length > 0 ? input.rules : null,
+      };
+      return apiRequest(`/api/qr/${input.short_id}`, { method: "PATCH", body });
     },
   },
 };

@@ -53,7 +53,7 @@ packages/
 - **Validation:** Zod + Fastify JSON Schema
 - **UA parsing:** `ua-parser-js` (device type, browser, OS extraction at scan time)
 - **Geo lookup:** `geoip-lite` (IP → country + city, MaxMind GeoLite2 embedded)
-- **Tests:** Vitest (137 integration tests)
+- **Tests:** Vitest (154 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -87,13 +87,16 @@ npm run key:list       # List API keys
 - **Plan-based quotas:** API keys have a `plan` column (free/pro). Limits defined in `PLAN_LIMITS` (shared/types.ts). Free: 10 QR, 1K scans/month, 1 webhook. Pro: unlimited.
 - **Scan grace period:** 3 tiers — normal (0→limit), grace (limit→limit+100, still recorded), hard cap (>limit+100, redirect works but scan not recorded). Redirect `/r/:shortId` NEVER blocks.
 - **Self-service registration:** `POST /api/register` creates API key with email. Rate-limited to 3/hour/IP.
+- **UTM parameters:** QR codes (type=url) support `utm_params` (JSON). UTM source/medium/campaign/term/content are auto-appended to the redirect URL via URLSearchParams.
+- **GTM container:** QR codes (type=url) support `gtm_container_id`. When set, redirects serve an intermediate HTML page with Google Tag Manager head/noscript snippets + meta refresh (1s delay).
+- **Conditional redirects:** QR codes (type=url) support `redirect_rules` (JSON array). Rules evaluated top-to-bottom; conditions: device, os, country, language, time_range, ab_split. First match wins, else default target_url.
 
 ## Database tables
 
 | Table | Purpose |
 |-------|---------|
 | `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
-| `qr_codes` | QR metadata, target URLs, format, type (11 types), type_data (JSON for type-specific data), style_options (JSON), expires_at, scheduled_url/scheduled_at, tenant isolation via `api_key_id` |
+| `qr_codes` | QR metadata, target URLs, format, type (11 types), type_data (JSON), style_options (JSON), expires_at, scheduled_url/scheduled_at, utm_params (JSON), gtm_container_id, redirect_rules (JSON), tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP, device_type, browser, os, country, city |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |

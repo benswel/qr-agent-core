@@ -2215,3 +2215,271 @@ describe("App Store QR Codes", () => {
     expect(res.headers.location).toBe("https://play.google.com/store/apps/details?id=com.example");
   });
 });
+
+// ─── UTM Parameters ──────────────────────────────────────
+
+describe("UTM Parameters", () => {
+  let utmShortId: string;
+
+  it("should create a URL QR code with utm_params", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com/landing",
+        label: "utm-test",
+        utm_params: { source: "flyer", medium: "print", campaign: "summer_2026" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    utmShortId = body.short_id;
+    expect(body.utm_params).toEqual({ source: "flyer", medium: "print", campaign: "summer_2026" });
+  });
+
+  it("should append UTM params to redirect URL", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${utmShortId}`,
+    });
+    expect(res.statusCode).toBe(302);
+    const location = res.headers.location as string;
+    expect(location).toContain("utm_source=flyer");
+    expect(location).toContain("utm_medium=print");
+    expect(location).toContain("utm_campaign=summer_2026");
+  });
+
+  it("should update utm_params", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${utmShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: { utm_params: { source: "email", medium: "newsletter" } },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().utm_params).toEqual({ source: "email", medium: "newsletter" });
+  });
+
+  it("should clear utm_params when set to null", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${utmShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: { utm_params: null },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().utm_params).toBeNull();
+
+    // Verify redirect no longer has UTM params
+    const redirect = await app.inject({ method: "GET", url: `/r/${utmShortId}` });
+    expect(redirect.statusCode).toBe(302);
+    expect(redirect.headers.location).toBe("https://example.com/landing");
+  });
+});
+
+// ─── GTM Container ──────────────────────────────────────
+
+describe("GTM Container", () => {
+  let gtmShortId: string;
+
+  it("should create a URL QR code with gtm_container_id", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com/gtm-landing",
+        label: "gtm-test",
+        gtm_container_id: "GTM-ABC123",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    gtmShortId = body.short_id;
+    expect(body.gtm_container_id).toBe("GTM-ABC123");
+  });
+
+  it("should serve an HTML page with GTM snippet instead of 302", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${gtmShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/html");
+    const html = res.body;
+    expect(html).toContain("GTM-ABC123");
+    expect(html).toContain("googletagmanager.com");
+    expect(html).toContain("https://example.com/gtm-landing");
+  });
+
+  it("should include GTM head and noscript snippets", async () => {
+    const res = await app.inject({ method: "GET", url: `/r/${gtmShortId}` });
+    const html = res.body;
+    expect(html).toContain("gtm.start");
+    expect(html).toContain("<noscript>");
+    expect(html).toContain('content="1;url=');
+  });
+
+  it("should restore normal 302 redirect after clearing gtm_container_id", async () => {
+    await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${gtmShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: { gtm_container_id: null },
+    });
+    const res = await app.inject({ method: "GET", url: `/r/${gtmShortId}` });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://example.com/gtm-landing");
+  });
+});
+
+// ─── Conditional Redirects ──────────────────────────────
+
+describe("Conditional Redirects", () => {
+  let rulesShortId: string;
+
+  it("should create a URL QR code with redirect_rules", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com/default",
+        label: "rules-test",
+        redirect_rules: [
+          { condition: { type: "device", value: "mobile" }, target_url: "https://m.example.com" },
+          { condition: { type: "os", value: "iOS" }, target_url: "https://ios.example.com" },
+          { condition: { type: "language", value: "fr" }, target_url: "https://fr.example.com" },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    rulesShortId = body.short_id;
+    expect(body.redirect_rules).toHaveLength(3);
+  });
+
+  it("should redirect mobile UA to mobile URL (device rule)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${rulesShortId}`,
+      headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" },
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://m.example.com");
+  });
+
+  it("should redirect French Accept-Language to FR URL (language rule)", async () => {
+    // Desktop + French language → device rule won't match, OS rule won't match, language rule matches
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${rulesShortId}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
+        "accept-language": "fr-FR,fr;q=0.9,en;q=0.8",
+      },
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://fr.example.com");
+  });
+
+  it("should fall back to default URL when no rule matches", async () => {
+    // Desktop + English → no rule matches
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${rulesShortId}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("https://example.com/default");
+  });
+
+  it("should validate redirect_rules target URLs", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com",
+        redirect_rules: [
+          { condition: { type: "device", value: "mobile" }, target_url: "not-a-url" },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("INVALID_URL");
+  });
+
+  it("should validate redirect_rules condition types", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com",
+        redirect_rules: [
+          { condition: { type: "invalid_type", value: "test" }, target_url: "https://example.com/mobile" },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("should update redirect_rules", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${rulesShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: {
+        redirect_rules: [
+          { condition: { type: "device", value: "tablet" }, target_url: "https://tablet.example.com" },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().redirect_rules).toHaveLength(1);
+    expect(res.json().redirect_rules[0].condition.value).toBe("tablet");
+  });
+
+  it("should clear redirect_rules when set to null", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${rulesShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: { redirect_rules: null },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().redirect_rules).toBeNull();
+  });
+});
+
+// ─── UTM + GTM + Rules combined ──────────────────────────
+
+describe("UTM + GTM Combined", () => {
+  it("should apply UTM params inside GTM page URL", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com/combo",
+        utm_params: { source: "qr", medium: "print" },
+        gtm_container_id: "GTM-COMBO1",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const shortId = res.json().short_id;
+
+    const redirect = await app.inject({ method: "GET", url: `/r/${shortId}` });
+    expect(redirect.statusCode).toBe(200);
+    expect(redirect.headers["content-type"]).toContain("text/html");
+    const html = redirect.body;
+    expect(html).toContain("GTM-COMBO1");
+    expect(html).toContain("utm_source=qr");
+    expect(html).toContain("utm_medium=print");
+  });
+});

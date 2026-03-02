@@ -206,6 +206,43 @@ export const qrCreateSchema = {
         description:
           "ISO 8601 date-time. When this date is reached, the QR code's target automatically switches to scheduled_url. The swap happens lazily on the next scan. Requires scheduled_url to be set.",
       },
+      utm_params: {
+        type: "object",
+        description:
+          "UTM tracking parameters auto-appended to the target URL on redirect. Only applies to type='url'. Set individual params; omitted params are not appended.",
+        properties: {
+          source: { type: "string", description: "utm_source value (e.g. 'flyer', 'email', 'social')." },
+          medium: { type: "string", description: "utm_medium value (e.g. 'print', 'cpc', 'banner')." },
+          campaign: { type: "string", description: "utm_campaign value (e.g. 'summer_2026')." },
+          term: { type: "string", description: "utm_term value (paid search keyword)." },
+          content: { type: "string", description: "utm_content value (A/B test variant identifier)." },
+        },
+      },
+      gtm_container_id: {
+        type: "string",
+        pattern: "^GTM-[A-Z0-9]+$",
+        description:
+          "Google Tag Manager container ID (e.g. 'GTM-XXXXXX'). When set, the redirect serves an intermediate HTML page with the GTM snippet before redirecting. This enables GA4/GTM tracking on QR scans. Only applies to type='url'.",
+      },
+      redirect_rules: {
+        type: "array",
+        description:
+          "Conditional redirect rules evaluated top-to-bottom on each scan. First matching rule's target_url is used; if none match, the default target_url applies. Only for type='url'. Conditions: device (mobile/tablet/desktop), os (iOS/Android/Windows/macOS/Linux), country (ISO 3166-1 alpha-2), language (ISO 639-1 from Accept-Language), time_range ({start,end,timezone}), ab_split ({percentage: 0-100}).",
+        items: {
+          type: "object",
+          properties: {
+            condition: {
+              type: "object",
+              description: "The condition to evaluate.",
+              properties: {
+                type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"], description: "Condition type." },
+                value: { description: "Condition value. String for device/os/country/language. Object for time_range ({start,end,timezone}) and ab_split ({percentage})." },
+              },
+            },
+            target_url: { type: "string", description: "URL to redirect to when this rule matches." },
+          },
+        },
+      },
     },
   },
   response: {
@@ -247,6 +284,9 @@ export const qrCreateSchema = {
         expires_at: { type: "string", nullable: true, description: "ISO 8601 expiration date, or null if no expiration." },
         scheduled_url: { type: "string", nullable: true, description: "Scheduled replacement URL, or null." },
         scheduled_at: { type: "string", nullable: true, description: "ISO 8601 activation date for scheduled_url, or null." },
+        utm_params: { type: "object", nullable: true, additionalProperties: true, description: "UTM tracking parameters (type='url' only)." },
+        gtm_container_id: { type: "string", nullable: true, description: "GTM container ID (type='url' only)." },
+        redirect_rules: { type: "array", nullable: true, items: { type: "object", additionalProperties: true }, description: "Conditional redirect rules (type='url' only)." },
       },
     },
   },
@@ -317,6 +357,9 @@ export const qrBulkUpdateSchema = {
             expires_at: { type: ["string", "null"], description: "ISO 8601 expiration date. Null to clear." },
             scheduled_url: { type: ["string", "null"], description: "Replacement URL. Null to cancel." },
             scheduled_at: { type: ["string", "null"], description: "ISO 8601 activation date. Null to cancel." },
+            utm_params: { type: ["object", "null"], additionalProperties: true },
+            gtm_container_id: { type: ["string", "null"] },
+            redirect_rules: { type: ["array", "null"], items: { type: "object", additionalProperties: true } },
           },
         },
       },
@@ -500,6 +543,36 @@ export const qrUpdateSchema = {
       scheduled_at: {
         type: ["string", "null"],
         description: "ISO 8601 activation date for scheduled_url. Set to null to cancel. Only valid for type='url'.",
+      },
+      utm_params: {
+        type: ["object", "null"],
+        description: "UTM tracking parameters. Set to null to clear. Only valid for type='url'.",
+        properties: {
+          source: { type: "string" }, medium: { type: "string" }, campaign: { type: "string" },
+          term: { type: "string" }, content: { type: "string" },
+        },
+      },
+      gtm_container_id: {
+        type: ["string", "null"],
+        pattern: "^GTM-[A-Z0-9]+$",
+        description: "GTM container ID. Set to null to clear. Only valid for type='url'.",
+      },
+      redirect_rules: {
+        type: ["array", "null"],
+        description: "Conditional redirect rules. Set to null to clear. Only valid for type='url'.",
+        items: {
+          type: "object",
+          properties: {
+            condition: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"] },
+                value: {},
+              },
+            },
+            target_url: { type: "string" },
+          },
+        },
       },
     },
   },

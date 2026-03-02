@@ -51,6 +51,22 @@ function validateQrTypeFields(type: string, body: Record<string, unknown>) {
   return null;
 }
 
+const VALID_CONDITION_TYPES = new Set(["device", "os", "country", "language", "time_range", "ab_split"]);
+
+/** Validate redirect_rules target URLs and condition types */
+function validateRedirectRules(rules: unknown[]): ReturnType<typeof Errors.missingField> | null {
+  for (const rule of rules) {
+    const r = rule as Record<string, unknown>;
+    if (!r.target_url) return Errors.missingField("redirect_rules[].target_url", "Each rule must have a target_url.");
+    try { new URL(r.target_url as string); } catch { return Errors.invalidUrl(r.target_url as string); }
+    const cond = r.condition as Record<string, unknown> | undefined;
+    if (!cond || !cond.type || !VALID_CONDITION_TYPES.has(cond.type as string)) {
+      return Errors.missingField("redirect_rules[].condition.type", "Must be one of: device, os, country, language, time_range, ab_split.");
+    }
+  }
+  return null;
+}
+
 export async function qrRoutes(app: FastifyInstance) {
   // CREATE a new QR code
   app.post(
@@ -72,6 +88,12 @@ export async function qrRoutes(app: FastifyInstance) {
       const validationError = validateQrTypeFields(type, body);
       if (validationError) {
         return sendError(reply, 400, validationError);
+      }
+
+      // Validate redirect_rules if provided
+      if (body.redirect_rules && Array.isArray(body.redirect_rules)) {
+        const rulesError = validateRedirectRules(body.redirect_rules);
+        if (rulesError) return sendError(reply, 400, rulesError);
       }
 
       const result = await qrService.createQrCode(body as any, request.apiKeyId, request.plan);
@@ -140,17 +162,23 @@ export async function qrRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const { shortId } = request.params as { shortId: string };
-      const body = request.body as { target_url?: string; label?: string };
+      const body = request.body as Record<string, unknown>;
 
       if (body.target_url) {
         try {
-          new URL(body.target_url);
+          new URL(body.target_url as string);
         } catch {
-          return sendError(reply, 400, Errors.invalidUrl(body.target_url));
+          return sendError(reply, 400, Errors.invalidUrl(body.target_url as string));
         }
       }
 
-      const result = qrService.updateQrCode(shortId, body, request.apiKeyId);
+      // Validate redirect_rules if provided
+      if (body.redirect_rules && Array.isArray(body.redirect_rules)) {
+        const rulesError = validateRedirectRules(body.redirect_rules);
+        if (rulesError) return sendError(reply, 400, rulesError);
+      }
+
+      const result = qrService.updateQrCode(shortId, body as any, request.apiKeyId);
 
       if (!result) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));
@@ -211,6 +239,10 @@ export async function qrRoutes(app: FastifyInstance) {
         const validationError = validateQrTypeFields(itemType, item);
         if (validationError) {
           return sendError(reply, 400, validationError);
+        }
+        if (item.redirect_rules && Array.isArray(item.redirect_rules)) {
+          const rulesError = validateRedirectRules(item.redirect_rules);
+          if (rulesError) return sendError(reply, 400, rulesError);
         }
       }
 

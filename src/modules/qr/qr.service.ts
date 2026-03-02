@@ -4,7 +4,7 @@ import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
 import { buildVCardString, buildWiFiString, buildEmailString, buildSMSString, buildPhoneString, buildEventString, buildTextString, buildLocationString } from "./qr.content.js";
-import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData, UtmParams, RedirectRule } from "../../shared/types.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { qrCodes } = schema;
@@ -36,6 +36,9 @@ export interface CreateQrInput {
   expires_at?: string;
   scheduled_url?: string;
   scheduled_at?: string;
+  utm_params?: UtmParams;
+  gtm_container_id?: string;
+  redirect_rules?: RedirectRule[];
 }
 
 export interface UpdateQrInput {
@@ -54,6 +57,9 @@ export interface UpdateQrInput {
   expires_at?: string | null;
   scheduled_url?: string | null;
   scheduled_at?: string | null;
+  utm_params?: UtmParams | null;
+  gtm_container_id?: string | null;
+  redirect_rules?: RedirectRule[] | null;
 }
 
 /** Determine the string to encode in the QR matrix based on type */
@@ -105,6 +111,9 @@ function formatQrResponse(row: typeof qrCodes.$inferSelect) {
       expires_at: row.expiresAt,
       scheduled_url: row.scheduledUrl,
       scheduled_at: row.scheduledAt,
+      utm_params: row.utmParams ? JSON.parse(row.utmParams) : null,
+      gtm_container_id: row.gtmContainerId || null,
+      redirect_rules: row.redirectRules ? JSON.parse(row.redirectRules) : null,
     } : {}),
   };
 }
@@ -188,6 +197,9 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
       expiresAt: type === "url" ? (input.expires_at || null) : null,
       scheduledUrl: type === "url" ? (input.scheduled_url || null) : null,
       scheduledAt: type === "url" ? (input.scheduled_at || null) : null,
+      utmParams: type === "url" && input.utm_params ? JSON.stringify(input.utm_params) : null,
+      gtmContainerId: type === "url" ? (input.gtm_container_id || null) : null,
+      redirectRules: type === "url" && input.redirect_rules ? JSON.stringify(input.redirect_rules) : null,
     })
     .returning()
     .get();
@@ -256,6 +268,9 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
     if (input.expires_at !== undefined) updateSet.expiresAt = input.expires_at;
     if (input.scheduled_url !== undefined) updateSet.scheduledUrl = input.scheduled_url;
     if (input.scheduled_at !== undefined) updateSet.scheduledAt = input.scheduled_at;
+    if (input.utm_params !== undefined) updateSet.utmParams = input.utm_params ? JSON.stringify(input.utm_params) : null;
+    if (input.gtm_container_id !== undefined) updateSet.gtmContainerId = input.gtm_container_id;
+    if (input.redirect_rules !== undefined) updateSet.redirectRules = input.redirect_rules ? JSON.stringify(input.redirect_rules) : null;
   }
 
   // Type-specific data: merge partial updates into existing typeData
@@ -387,6 +402,9 @@ export async function bulkCreateQrCodes(
         expiresAt: type === "url" ? (input.expires_at || null) : null,
         scheduledUrl: type === "url" ? (input.scheduled_url || null) : null,
         scheduledAt: type === "url" ? (input.scheduled_at || null) : null,
+        utmParams: type === "url" && input.utm_params ? JSON.stringify(input.utm_params) : null,
+        gtmContainerId: type === "url" ? (input.gtm_container_id || null) : null,
+        redirectRules: type === "url" && input.redirect_rules ? JSON.stringify(input.redirect_rules) : null,
       })
       .returning()
       .get();
@@ -433,6 +451,9 @@ export function bulkUpdateQrCodes(
       if (item.expires_at !== undefined) updateSet.expiresAt = item.expires_at;
       if (item.scheduled_url !== undefined) updateSet.scheduledUrl = item.scheduled_url;
       if (item.scheduled_at !== undefined) updateSet.scheduledAt = item.scheduled_at;
+      if (item.utm_params !== undefined) updateSet.utmParams = item.utm_params ? JSON.stringify(item.utm_params) : null;
+      if (item.gtm_container_id !== undefined) updateSet.gtmContainerId = item.gtm_container_id;
+      if (item.redirect_rules !== undefined) updateSet.redirectRules = item.redirect_rules ? JSON.stringify(item.redirect_rules) : null;
     }
     // Type-specific data: merge partial updates
     const typeDataKey = `${type}_data`;

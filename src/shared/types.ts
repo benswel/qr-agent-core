@@ -85,6 +85,42 @@ export interface AppStoreData {
   fallback_url?: string;
 }
 
+/** UTM tracking parameters for URL QR codes */
+export interface UtmParams {
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  term?: string;
+  content?: string;
+}
+
+/** Redirect condition types for conditional redirects */
+export type RedirectConditionType = "device" | "os" | "country" | "language" | "time_range" | "ab_split";
+
+/** Time range value for time_range conditions */
+export interface TimeRangeValue {
+  start: string;  // "HH:MM"
+  end: string;    // "HH:MM"
+  timezone: string; // IANA timezone (e.g. "Europe/Paris")
+}
+
+/** A/B split value for ab_split conditions */
+export interface AbSplitValue {
+  percentage: number; // 0-100
+}
+
+/** A redirect condition */
+export interface RedirectCondition {
+  type: RedirectConditionType;
+  value: string | TimeRangeValue | AbSplitValue;
+}
+
+/** A redirect rule: condition + target URL */
+export interface RedirectRule {
+  condition: RedirectCondition;
+  target_url: string;
+}
+
 /** Style options for custom QR code rendering */
 export interface QrStyleOptions {
   foreground_color?: string;
