@@ -191,6 +191,21 @@ export const qrCreateSchema = {
         default: 0.2,
         description: "Logo size as a ratio of QR code width (0.15 to 0.3). Default: 0.2 (20% of width).",
       },
+      gradient: {
+        type: "object",
+        description:
+          "Apply a gradient to QR code dots and finder patterns instead of a solid foreground color. Overrides foreground_color when set.",
+        properties: {
+          type: { type: "string", enum: ["linear", "radial"], description: "Gradient type. 'linear' for directional, 'radial' for circular." },
+          colors: {
+            type: "array",
+            minItems: 2,
+            items: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+            description: "Array of 2+ hex colors, evenly distributed along the gradient.",
+          },
+          angle: { type: "number", minimum: 0, maximum: 360, description: "Gradient angle in degrees (linear only). 0 = left-to-right, 90 = top-to-bottom. Default: 0." },
+        },
+      },
       expires_at: {
         type: "string",
         description:

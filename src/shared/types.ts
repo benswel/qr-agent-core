@@ -121,10 +121,18 @@ export interface RedirectRule {
   target_url: string;
 }
 
+/** Gradient options for QR code foreground */
+export interface GradientOptions {
+  type: "linear" | "radial";
+  colors: string[];  // 2+ hex colors, evenly distributed
+  angle?: number;    // 0-360, linear only (default: 0 = left-to-right)
+}
+
 /** Style options for custom QR code rendering */
 export interface QrStyleOptions {
   foreground_color?: string;
   background_color?: string;
+  gradient?: GradientOptions;
   width?: number;
   margin?: number;
   error_correction?: "L" | "M" | "Q" | "H";

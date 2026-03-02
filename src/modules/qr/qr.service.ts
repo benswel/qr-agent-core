@@ -4,7 +4,7 @@ import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
 import { buildVCardString, buildWiFiString, buildEmailString, buildSMSString, buildPhoneString, buildEventString, buildTextString, buildLocationString } from "./qr.content.js";
-import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData, UtmParams, RedirectRule } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions, GradientOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData, UtmParams, RedirectRule } from "../../shared/types.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { qrCodes } = schema;
@@ -33,6 +33,7 @@ export interface CreateQrInput {
   corner_style?: string;
   logo_url?: string;
   logo_size?: number;
+  gradient?: GradientOptions;
   expires_at?: string;
   scheduled_url?: string;
   scheduled_at?: string;
@@ -131,6 +132,7 @@ function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
   if (input.corner_style) { style.corner_style = input.corner_style as QrStyleOptions["corner_style"]; hasStyle = true; }
   if (input.logo_url) { style.logo_url = input.logo_url; hasStyle = true; }
   if (input.logo_size) { style.logo_size = input.logo_size; hasStyle = true; }
+  if (input.gradient) { style.gradient = input.gradient; hasStyle = true; }
 
   return hasStyle ? style : undefined;
 }

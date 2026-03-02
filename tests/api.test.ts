@@ -560,6 +560,44 @@ describe("Custom QR Code Styling", () => {
     expect(body.image_data).toContain("data:image/png;base64,");
   });
 
+  it("creates QR with linear gradient", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://gradient.com",
+        gradient: { type: "linear", colors: ["#6366f1", "#ec4899"], angle: 45 },
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<linearGradient");
+    expect(body.image_data).toContain("#6366f1");
+    expect(body.image_data).toContain("#ec4899");
+    expect(body.image_data).toContain('url(#qr-gradient)');
+  });
+
+  it("creates QR with radial gradient", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://radial.com",
+        gradient: { type: "radial", colors: ["#f59e0b", "#ef4444", "#8b5cf6"] },
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<radialGradient");
+    expect(body.image_data).toContain("#f59e0b");
+    expect(body.image_data).toContain("#8b5cf6");
+    expect(body.image_data).toContain('url(#qr-gradient)');
+  });
+
   it("backward compatible — no style options works", async () => {
     const res = await app.inject({
       method: "POST",

@@ -68,6 +68,11 @@ export const tools = {
         .max(0.3)
         .optional()
         .describe("Logo size as ratio of QR width (0.15-0.3). Default: 0.2."),
+      gradient: z.object({
+        type: z.enum(["linear", "radial"]).describe("Gradient type."),
+        colors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}$/)).min(2).describe("2+ hex colors, evenly distributed."),
+        angle: z.number().min(0).max(360).optional().describe("Angle in degrees (linear only). 0=left-to-right, 90=top-to-bottom."),
+      }).optional().describe("Apply a gradient to QR dots and corners instead of solid foreground_color."),
       expires_at: z
         .string()
         .optional()

@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import sharp from "sharp";
-import type { QrFormat, QrStyleOptions } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions, GradientOptions } from "../../shared/types.js";
 
 const DEFAULT_WIDTH = 400;
 const DEFAULT_MARGIN = 2;
@@ -165,6 +165,25 @@ function getFinderRenderer(style: string): FinderRenderer {
   }
 }
 
+// --- Gradient SVG generation ---
+
+function buildGradientDefs(gradient: GradientOptions, width: number): string {
+  const stops = gradient.colors.map((color, i) => {
+    const offset = gradient.colors.length === 1 ? 0 : (i / (gradient.colors.length - 1)) * 100;
+    return `<stop offset="${offset}%" stop-color="${color}"/>`;
+  }).join("");
+
+  if (gradient.type === "radial") {
+    return `<defs><radialGradient id="qr-gradient" cx="50%" cy="50%" r="50%">${stops}</radialGradient></defs>`;
+  }
+
+  // Linear gradient with angle rotation
+  const angle = gradient.angle ?? 0;
+  const half = width / 2;
+  const transform = angle !== 0 ? ` gradientTransform="rotate(${angle}, ${half}, ${half})"` : "";
+  return `<defs><linearGradient id="qr-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="${half}" x2="${width}" y2="${half}"${transform}>${stops}</linearGradient></defs>`;
+}
+
 /**
  * Build the complete SVG string from a QR matrix and style options.
  */
@@ -182,14 +201,15 @@ function buildSvg(
     >
   >,
   logoDataUri?: string,
-  logoSizeRatio?: number
+  logoSizeRatio?: number,
+  gradient?: GradientOptions
 ): string {
   const { modules, size } = matrix;
   const totalModules = size + options.margin * 2;
   const moduleSize = options.width / totalModules;
   const offset = options.margin * moduleSize;
 
-  const fg = options.foreground_color;
+  const fg = gradient ? "url(#qr-gradient)" : options.foreground_color;
   const bg = options.background_color;
 
   const dotRenderer = getDotRenderer(options.dot_style);
@@ -201,6 +221,11 @@ function buildSvg(
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${options.width} ${options.width}" width="${options.width}" height="${options.width}">`
   );
+
+  // Gradient defs (if any)
+  if (gradient) {
+    parts.push(buildGradientDefs(gradient, options.width));
+  }
 
   // Background
   parts.push(
@@ -339,7 +364,8 @@ export async function renderQrCode(
       corner_style: cornerStyle,
     },
     logoDataUri,
-    logoUrl ? logoSize : undefined
+    logoUrl ? logoSize : undefined,
+    style?.gradient
   );
 
   if (format === "svg") {
