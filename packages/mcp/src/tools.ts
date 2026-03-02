@@ -165,12 +165,16 @@ export const tools = {
 
   get_qr_analytics: {
     description:
-      "Get scan analytics for a QR code. Returns total scan count and recent scan events with timestamps and user agents.",
+      "Get enriched scan analytics for a QR code. Returns total scans, daily trends, device/browser/country/referer breakdowns with percentages, and recent scan events with parsed user-agent and geo data.",
     inputSchema: z.object({
       short_id: z.string().describe("The short ID of the QR code to get analytics for."),
+      period: z
+        .enum(["7d", "30d", "90d", "all"])
+        .default("30d")
+        .describe("Time period for aggregations. Default: 30d."),
     }),
-    handler: async (input: { short_id: string }) => {
-      return apiRequest(`/api/analytics/${input.short_id}`);
+    handler: async (input: { short_id: string; period: string }) => {
+      return apiRequest(`/api/analytics/${input.short_id}`, { query: { period: input.period } });
     },
   },
 

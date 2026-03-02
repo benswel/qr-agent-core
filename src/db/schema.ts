@@ -62,6 +62,11 @@ export const scanEvents = sqliteTable("scan_events", {
   userAgent: text("user_agent"),
   referer: text("referer"),
   ip: text("ip"),
+  deviceType: text("device_type"),
+  browser: text("browser"),
+  os: text("os"),
+  country: text("country"),
+  city: text("city"),
 });
 
 /**

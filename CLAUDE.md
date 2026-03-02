@@ -51,7 +51,9 @@ packages/
 - **QR generation:** `qrcode` (matrix) + custom SVG renderer (dot/corner styles) + `sharp` (PNG conversion + logo)
 - **Auth:** API key (`X-API-Key` header, `qr_` prefix + 32-char nanoid)
 - **Validation:** Zod + Fastify JSON Schema
-- **Tests:** Vitest (84 integration tests)
+- **UA parsing:** `ua-parser-js` (device type, browser, OS extraction at scan time)
+- **Geo lookup:** `geoip-lite` (IP → country + city, MaxMind GeoLite2 embedded)
+- **Tests:** Vitest (92 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -74,6 +76,7 @@ npm run key:list       # List API keys
 - **Agent-friendly errors:** Every error has `{ error, code, hint }` — the hint tells agents how to fix the issue.
 - **Dynamic links:** The QR image encodes the short URL (`/r/:shortId`), not the target. Changing target = same QR.
 - **Fire-and-forget analytics:** Scan recording doesn't block the redirect response.
+- **Enriched analytics:** User-agent parsed at scan time (device/browser/OS via ua-parser-js), IP geolocated (country/city via geoip-lite). Analytics endpoint returns aggregations: scans_by_day, top_devices, top_browsers, top_countries, top_referers. Supports `?period=7d|30d|90d|all`.
 - **Fire-and-forget webhooks:** Webhook dispatch on scan is async, never blocks redirect.
 - **Custom QR rendering:** Custom SVG renderer with dot styles (square, rounded, dots, classy-rounded), corner styles (square, extra-rounded, dot), colors, logo embedding. Style options stored as JSON in DB for regeneration.
 - **Webhook security:** HMAC-SHA256 signatures on all webhook deliveries. Secret only returned at creation time.
@@ -90,7 +93,7 @@ npm run key:list       # List API keys
 |-------|---------|
 | `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
 | `qr_codes` | QR metadata, target URLs, format, style_options (JSON), expires_at, scheduled_url/scheduled_at, tenant isolation via `api_key_id` |
-| `scan_events` | Scan tracking: timestamp, user-agent, referer, IP |
+| `scan_events` | Scan tracking: timestamp, user-agent, referer, IP, device_type, browser, os, country, city |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |
 

@@ -141,6 +141,37 @@ export function runMigrations() {
     // Column already exists — ignore
   }
 
+  // Migration: add enriched analytics columns to scan_events
+  try {
+    db.run(sql`ALTER TABLE scan_events ADD COLUMN device_type TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE scan_events ADD COLUMN browser TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE scan_events ADD COLUMN os TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE scan_events ADD COLUMN country TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    db.run(sql`ALTER TABLE scan_events ADD COLUMN city TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Drop legacy pro_waitlist table (Pro is now live via Stripe)
   db.run(sql`DROP TABLE IF EXISTS pro_waitlist`);
 }

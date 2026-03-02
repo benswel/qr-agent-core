@@ -218,7 +218,7 @@ describe("Redirect & Analytics", () => {
     expect(res.json().code).toBe("RESOURCE_NOT_FOUND");
   });
 
-  it("records scan and returns analytics", async () => {
+  it("records scan and returns enriched analytics", async () => {
     // Hit the redirect a few more times
     await app.inject({ method: "GET", url: `/r/${createdShortId}` });
     await app.inject({ method: "GET", url: `/r/${createdShortId}` });
@@ -232,9 +232,16 @@ describe("Redirect & Analytics", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.short_id).toBe(createdShortId);
-    expect(body.total_scans).toBeGreaterThanOrEqual(3); // 1 from redirect test + 2 here
+    expect(body.total_scans).toBeGreaterThanOrEqual(3);
+    expect(body.period).toBe("30d");
     expect(body.recent_scans).toBeInstanceOf(Array);
     expect(body.recent_scans.length).toBeGreaterThanOrEqual(3);
+    // Enriched fields exist
+    expect(body).toHaveProperty("scans_by_day");
+    expect(body).toHaveProperty("top_devices");
+    expect(body).toHaveProperty("top_browsers");
+    expect(body).toHaveProperty("top_countries");
+    expect(body).toHaveProperty("top_referers");
   });
 });
 
@@ -1321,5 +1328,186 @@ describe("Expiration & Scheduling", () => {
     // Should be 410 (expired), NOT a redirect to scheduled_url
     expect(redirectRes.statusCode).toBe(410);
     expect(redirectRes.json().code).toBe("QR_EXPIRED");
+  });
+});
+
+// ─── Enriched Analytics ─────────────────────────────────
+
+describe("Enriched Analytics", () => {
+  let analyticsShortId: string;
+
+  it("should create QR and simulate scans with different user-agents", async () => {
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { target_url: "https://analytics-enriched-test.example.com" },
+    });
+    expect(createRes.statusCode).toBe(201);
+    analyticsShortId = createRes.json().short_id;
+
+    // Scan 1: Chrome on desktop (no device type → defaults to "desktop")
+    await app.inject({
+      method: "GET",
+      url: `/r/${analyticsShortId}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        referer: "https://instagram.com/p/abc123",
+      },
+    });
+
+    // Scan 2: Safari on iPhone
+    await app.inject({
+      method: "GET",
+      url: `/r/${analyticsShortId}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        referer: "https://facebook.com/posts/xyz",
+      },
+    });
+
+    // Scan 3: Firefox on Android
+    await app.inject({
+      method: "GET",
+      url: `/r/${analyticsShortId}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 Firefox/120.0",
+      },
+    });
+
+    // Scan 4: No user-agent (direct scan)
+    await app.inject({
+      method: "GET",
+      url: `/r/${analyticsShortId}`,
+    });
+  });
+
+  it("should return enriched recent_scans with device_type, browser, os", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.recent_scans.length).toBe(4);
+    // All recent scans should have enriched fields
+    for (const scan of body.recent_scans) {
+      expect(scan).toHaveProperty("device_type");
+      expect(scan).toHaveProperty("browser");
+      expect(scan).toHaveProperty("os");
+      expect(scan).toHaveProperty("country");
+      expect(scan).toHaveProperty("city");
+    }
+
+    // The Chrome desktop scan should have parsed fields
+    const chromeScan = body.recent_scans.find((s: any) => s.browser === "Chrome" && s.device_type === "desktop");
+    expect(chromeScan).toBeTruthy();
+
+    // The Safari mobile scan should be detected
+    const safariScan = body.recent_scans.find((s: any) => s.browser === "Mobile Safari" && s.device_type === "mobile");
+    expect(safariScan).toBeTruthy();
+  });
+
+  it("should return top_devices with count and percentage", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const body = res.json();
+
+    expect(body.top_devices).toBeInstanceOf(Array);
+    expect(body.top_devices.length).toBeGreaterThanOrEqual(1);
+    for (const device of body.top_devices) {
+      expect(device).toHaveProperty("device_type");
+      expect(device).toHaveProperty("count");
+      expect(device).toHaveProperty("percentage");
+      expect(typeof device.percentage).toBe("number");
+    }
+  });
+
+  it("should return top_browsers with count and percentage", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const body = res.json();
+
+    expect(body.top_browsers).toBeInstanceOf(Array);
+    expect(body.top_browsers.length).toBeGreaterThanOrEqual(1);
+    for (const browser of body.top_browsers) {
+      expect(browser).toHaveProperty("browser");
+      expect(browser).toHaveProperty("count");
+      expect(browser).toHaveProperty("percentage");
+    }
+  });
+
+  it("should return scans_by_day with date and count", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const body = res.json();
+
+    expect(body.scans_by_day).toBeInstanceOf(Array);
+    expect(body.scans_by_day.length).toBeGreaterThanOrEqual(1);
+    for (const day of body.scans_by_day) {
+      expect(day).toHaveProperty("date");
+      expect(day).toHaveProperty("count");
+      // Date should be YYYY-MM-DD format
+      expect(day.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("should include (direct) in top_referers for scans without referer", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const body = res.json();
+
+    expect(body.top_referers).toBeInstanceOf(Array);
+    const directEntry = body.top_referers.find((r: any) => r.referer === "(direct)");
+    expect(directEntry).toBeTruthy();
+    expect(directEntry.count).toBeGreaterThanOrEqual(1);
+
+    // Should also have domain-grouped referers
+    const instagramEntry = body.top_referers.find((r: any) => r.referer === "instagram.com");
+    expect(instagramEntry).toBeTruthy();
+  });
+
+  it("should support period=7d querystring", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}?period=7d`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.period).toBe("7d");
+    expect(body.total_scans).toBeGreaterThanOrEqual(4);
+    expect(body.scans_by_day).toBeInstanceOf(Array);
+  });
+
+  it("should have null country/city for localhost IPs", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${analyticsShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    const body = res.json();
+
+    // All scans are from 127.0.0.1 in tests, so geo should be null
+    for (const scan of body.recent_scans) {
+      expect(scan.country).toBeNull();
+      expect(scan.city).toBeNull();
+    }
+    // top_countries should be empty (no geo data from localhost)
+    expect(body.top_countries).toEqual([]);
   });
 });
