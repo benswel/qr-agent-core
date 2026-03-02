@@ -1,6 +1,30 @@
 /** Supported QR code output formats */
 export type QrFormat = "svg" | "png";
 
+/** QR code content types */
+export type QrType = "url" | "vcard" | "wifi";
+
+/** Structured vCard data for vCard QR codes */
+export interface VCardData {
+  first_name: string;
+  last_name: string;
+  organization?: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  url?: string;
+  address?: string;
+  note?: string;
+}
+
+/** Structured WiFi data for WiFi QR codes */
+export interface WiFiData {
+  ssid: string;
+  password?: string;
+  encryption: "WPA" | "WEP" | "nopass";
+  hidden?: boolean;
+}
+
 /** Style options for custom QR code rendering */
 export interface QrStyleOptions {
   foreground_color?: string;

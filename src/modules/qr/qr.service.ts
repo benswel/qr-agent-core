@@ -3,13 +3,17 @@ import { nanoid } from "nanoid";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { renderQrCode } from "./qr.renderer.js";
-import type { QrFormat, QrStyleOptions, Plan } from "../../shared/types.js";
+import { buildVCardString, buildWiFiString } from "./qr.content.js";
+import type { QrFormat, QrStyleOptions, Plan, QrType, VCardData, WiFiData } from "../../shared/types.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 
 const { qrCodes } = schema;
 
 export interface CreateQrInput {
-  target_url: string;
+  type?: QrType;
+  target_url?: string;
+  vcard_data?: VCardData;
+  wifi_data?: WiFiData;
   label?: string;
   format?: QrFormat;
   foreground_color?: string;
@@ -29,9 +33,48 @@ export interface CreateQrInput {
 export interface UpdateQrInput {
   target_url?: string;
   label?: string;
+  vcard_data?: Partial<VCardData>;
+  wifi_data?: Partial<WiFiData>;
   expires_at?: string | null;
   scheduled_url?: string | null;
   scheduled_at?: string | null;
+}
+
+/** Determine the string to encode in the QR matrix based on type */
+function getQrContent(type: QrType, shortUrl: string, typeData: string | null): string {
+  if (type === "vcard" && typeData) {
+    return buildVCardString(JSON.parse(typeData) as VCardData);
+  }
+  if (type === "wifi" && typeData) {
+    return buildWiFiString(JSON.parse(typeData) as WiFiData);
+  }
+  return shortUrl;
+}
+
+/** Format a DB row into the API response shape */
+function formatQrResponse(row: typeof qrCodes.$inferSelect) {
+  const type = (row.type as QrType) || "url";
+  const shortUrl = `${config.baseUrl}/r/${row.shortId}`;
+  const typeData = row.typeData ? JSON.parse(row.typeData) : null;
+
+  return {
+    id: row.id,
+    short_id: row.shortId,
+    short_url: shortUrl,
+    type,
+    target_url: type === "url" ? row.targetUrl : null,
+    vcard_data: type === "vcard" ? typeData : null,
+    wifi_data: type === "wifi" ? typeData : null,
+    label: row.label,
+    format: row.format,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+    ...(type === "url" ? {
+      expires_at: row.expiresAt,
+      scheduled_url: row.scheduledUrl,
+      scheduled_at: row.scheduledAt,
+    } : {}),
+  };
 }
 
 function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
@@ -69,38 +112,47 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
   const shortId = nanoid(config.shortId.length);
   const format = input.format || "svg";
   const shortUrl = `${config.baseUrl}/r/${shortId}`;
+  const type = input.type || "url";
 
+  // Determine QR matrix content and storage values based on type
+  let targetUrl: string;
+  let typeData: string | null = null;
+
+  if (type === "vcard") {
+    typeData = JSON.stringify(input.vcard_data);
+    targetUrl = shortUrl; // sentinel — redirect route handles vcard behavior
+  } else if (type === "wifi") {
+    typeData = JSON.stringify(input.wifi_data);
+    targetUrl = shortUrl; // sentinel
+  } else {
+    targetUrl = input.target_url!;
+  }
+
+  const qrContent = getQrContent(type, shortUrl, typeData);
   const styleOptions = buildStyleOptions(input);
-  const imageData = await renderQrCode(shortUrl, format, styleOptions);
+  const imageData = await renderQrCode(qrContent, format, styleOptions);
 
   const inserted = db
     .insert(qrCodes)
     .values({
       shortId,
-      targetUrl: input.target_url,
+      targetUrl,
       label: input.label || null,
       format,
       styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
       apiKeyId,
-      expiresAt: input.expires_at || null,
-      scheduledUrl: input.scheduled_url || null,
-      scheduledAt: input.scheduled_at || null,
+      type,
+      typeData,
+      expiresAt: type === "url" ? (input.expires_at || null) : null,
+      scheduledUrl: type === "url" ? (input.scheduled_url || null) : null,
+      scheduledAt: type === "url" ? (input.scheduled_at || null) : null,
     })
     .returning()
     .get();
 
   return {
-    id: inserted.id,
-    short_id: inserted.shortId,
-    short_url: shortUrl,
-    target_url: inserted.targetUrl,
-    label: inserted.label,
-    format: inserted.format,
+    ...formatQrResponse(inserted),
     image_data: imageData,
-    created_at: inserted.createdAt,
-    expires_at: inserted.expiresAt,
-    scheduled_url: inserted.scheduledUrl,
-    scheduled_at: inserted.scheduledAt,
   };
 }
 
@@ -113,19 +165,7 @@ export function getQrCode(shortId: string, apiKeyId: number) {
 
   if (!row) return null;
 
-  return {
-    id: row.id,
-    short_id: row.shortId,
-    short_url: `${config.baseUrl}/r/${row.shortId}`,
-    target_url: row.targetUrl,
-    label: row.label,
-    format: row.format,
-    created_at: row.createdAt,
-    updated_at: row.updatedAt,
-    expires_at: row.expiresAt,
-    scheduled_url: row.scheduledUrl,
-    scheduled_at: row.scheduledAt,
-  };
+  return formatQrResponse(row);
 }
 
 export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: number) {
@@ -144,19 +184,7 @@ export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: nu
     .all();
 
   return {
-    data: rows.map((row) => ({
-      id: row.id,
-      short_id: row.shortId,
-      short_url: `${config.baseUrl}/r/${row.shortId}`,
-      target_url: row.targetUrl,
-      label: row.label,
-      format: row.format,
-      created_at: row.createdAt,
-      updated_at: row.updatedAt,
-      expires_at: row.expiresAt,
-      scheduled_url: row.scheduledUrl,
-      scheduled_at: row.scheduledAt,
-    })),
+    data: rows.map(formatQrResponse),
     total,
     offset,
     limit,
@@ -172,33 +200,40 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
 
   if (!existing) return null;
 
+  const type = (existing.type as QrType) || "url";
+  const updateSet: Record<string, unknown> = {
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Label is valid for all types
+  if (input.label !== undefined) updateSet.label = input.label;
+
+  // URL-specific fields
+  if (type === "url") {
+    if (input.target_url !== undefined) updateSet.targetUrl = input.target_url;
+    if (input.expires_at !== undefined) updateSet.expiresAt = input.expires_at;
+    if (input.scheduled_url !== undefined) updateSet.scheduledUrl = input.scheduled_url;
+    if (input.scheduled_at !== undefined) updateSet.scheduledAt = input.scheduled_at;
+  }
+
+  // vCard/WiFi: merge partial updates into existing typeData
+  if (type === "vcard" && input.vcard_data) {
+    const current = existing.typeData ? JSON.parse(existing.typeData) : {};
+    updateSet.typeData = JSON.stringify({ ...current, ...input.vcard_data });
+  }
+  if (type === "wifi" && input.wifi_data) {
+    const current = existing.typeData ? JSON.parse(existing.typeData) : {};
+    updateSet.typeData = JSON.stringify({ ...current, ...input.wifi_data });
+  }
+
   const updated = db
     .update(qrCodes)
-    .set({
-      ...(input.target_url !== undefined && { targetUrl: input.target_url }),
-      ...(input.label !== undefined && { label: input.label }),
-      ...(input.expires_at !== undefined && { expiresAt: input.expires_at }),
-      ...(input.scheduled_url !== undefined && { scheduledUrl: input.scheduled_url }),
-      ...(input.scheduled_at !== undefined && { scheduledAt: input.scheduled_at }),
-      updatedAt: new Date().toISOString(),
-    })
+    .set(updateSet)
     .where(eq(qrCodes.shortId, shortId))
     .returning()
     .get();
 
-  return {
-    id: updated.id,
-    short_id: updated.shortId,
-    short_url: `${config.baseUrl}/r/${updated.shortId}`,
-    target_url: updated.targetUrl,
-    label: updated.label,
-    format: updated.format,
-    created_at: updated.createdAt,
-    updated_at: updated.updatedAt,
-    expires_at: updated.expiresAt,
-    scheduled_url: updated.scheduledUrl,
-    scheduled_at: updated.scheduledAt,
-  };
+  return formatQrResponse(updated);
 }
 
 export function deleteQrCode(shortId: string, apiKeyId: number): boolean {
@@ -231,11 +266,13 @@ export async function getQrImage(shortId: string, formatOverride?: QrFormat, api
 
   const format = formatOverride || (row.format as QrFormat);
   const shortUrl = `${config.baseUrl}/r/${row.shortId}`;
+  const type = (row.type as QrType) || "url";
+  const qrContent = getQrContent(type, shortUrl, row.typeData);
   const styleOptions: QrStyleOptions | undefined = row.styleOptions
     ? JSON.parse(row.styleOptions)
     : undefined;
 
-  const imageData = await renderQrCode(shortUrl, format, styleOptions);
+  const imageData = await renderQrCode(qrContent, format, styleOptions);
 
   return { imageData, format };
 }
@@ -273,37 +310,46 @@ export async function bulkCreateQrCodes(
     const shortId = nanoid(config.shortId.length);
     const format = input.format || "svg";
     const shortUrl = `${config.baseUrl}/r/${shortId}`;
+    const type = input.type || "url";
+
+    let targetUrl: string;
+    let typeData: string | null = null;
+
+    if (type === "vcard") {
+      typeData = JSON.stringify(input.vcard_data);
+      targetUrl = shortUrl;
+    } else if (type === "wifi") {
+      typeData = JSON.stringify(input.wifi_data);
+      targetUrl = shortUrl;
+    } else {
+      targetUrl = input.target_url!;
+    }
+
+    const qrContent = getQrContent(type, shortUrl, typeData);
     const styleOptions = buildStyleOptions(input);
-    const imageData = await renderQrCode(shortUrl, format, styleOptions);
+    const imageData = await renderQrCode(qrContent, format, styleOptions);
 
     const inserted = db
       .insert(qrCodes)
       .values({
         shortId,
-        targetUrl: input.target_url,
+        targetUrl,
         label: input.label || null,
         format,
         styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
         apiKeyId,
-        expiresAt: input.expires_at || null,
-        scheduledUrl: input.scheduled_url || null,
-        scheduledAt: input.scheduled_at || null,
+        type,
+        typeData,
+        expiresAt: type === "url" ? (input.expires_at || null) : null,
+        scheduledUrl: type === "url" ? (input.scheduled_url || null) : null,
+        scheduledAt: type === "url" ? (input.scheduled_at || null) : null,
       })
       .returning()
       .get();
 
     results.push({
-      id: inserted.id,
-      short_id: inserted.shortId,
-      short_url: shortUrl,
-      target_url: inserted.targetUrl,
-      label: inserted.label,
-      format: inserted.format,
+      ...formatQrResponse(inserted),
       image_data: imageData,
-      created_at: inserted.createdAt,
-      expires_at: inserted.expiresAt,
-      scheduled_url: inserted.scheduledUrl,
-      scheduled_at: inserted.scheduledAt,
     });
   }
 
@@ -311,7 +357,7 @@ export async function bulkCreateQrCodes(
 }
 
 export function bulkUpdateQrCodes(
-  items: Array<{ short_id: string; target_url?: string; label?: string; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }>,
+  items: Array<{ short_id: string; target_url?: string; label?: string; vcard_data?: Partial<VCardData>; wifi_data?: Partial<WiFiData>; expires_at?: string | null; scheduled_url?: string | null; scheduled_at?: string | null }>,
   apiKeyId: number
 ) {
   let updated = 0;
@@ -331,15 +377,30 @@ export function bulkUpdateQrCodes(
       continue;
     }
 
+    const type = (existing.type as QrType) || "url";
+    const updateSet: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (item.label !== undefined) updateSet.label = item.label;
+
+    if (type === "url") {
+      if (item.target_url !== undefined) updateSet.targetUrl = item.target_url;
+      if (item.expires_at !== undefined) updateSet.expiresAt = item.expires_at;
+      if (item.scheduled_url !== undefined) updateSet.scheduledUrl = item.scheduled_url;
+      if (item.scheduled_at !== undefined) updateSet.scheduledAt = item.scheduled_at;
+    }
+    if (type === "vcard" && item.vcard_data) {
+      const current = existing.typeData ? JSON.parse(existing.typeData) : {};
+      updateSet.typeData = JSON.stringify({ ...current, ...item.vcard_data });
+    }
+    if (type === "wifi" && item.wifi_data) {
+      const current = existing.typeData ? JSON.parse(existing.typeData) : {};
+      updateSet.typeData = JSON.stringify({ ...current, ...item.wifi_data });
+    }
+
     db.update(qrCodes)
-      .set({
-        ...(item.target_url !== undefined && { targetUrl: item.target_url }),
-        ...(item.label !== undefined && { label: item.label }),
-        ...(item.expires_at !== undefined && { expiresAt: item.expires_at }),
-        ...(item.scheduled_url !== undefined && { scheduledUrl: item.scheduled_url }),
-        ...(item.scheduled_at !== undefined && { scheduledAt: item.scheduled_at }),
-        updatedAt: new Date().toISOString(),
-      })
+      .set(updateSet)
       .where(eq(qrCodes.shortId, item.short_id))
       .run();
 

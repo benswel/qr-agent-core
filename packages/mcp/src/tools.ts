@@ -246,6 +246,112 @@ export const tools = {
     },
   },
 
+  create_vcard_qr: {
+    description:
+      "Create a QR code that encodes a contact card (vCard). When scanned by a phone camera, it prompts the user to save the contact. Supports all standard vCard fields and custom QR styling.",
+    inputSchema: z.object({
+      first_name: z.string().describe("Contact first name."),
+      last_name: z.string().describe("Contact last name."),
+      organization: z.string().optional().describe("Company or organization."),
+      title: z.string().optional().describe("Job title."),
+      email: z.string().optional().describe("Email address."),
+      phone: z.string().optional().describe("Phone number."),
+      url: z.string().optional().describe("Website URL."),
+      address: z.string().optional().describe("Street address."),
+      note: z.string().optional().describe("Additional notes."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { first_name, last_name, organization, title, email, phone, url, address, note, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: {
+          type: "vcard",
+          vcard_data: { first_name, last_name, organization, title, email, phone, url, address, note },
+          ...rest,
+        },
+      });
+    },
+  },
+
+  create_wifi_qr: {
+    description:
+      "Create a QR code that encodes WiFi credentials. When scanned by a phone camera, it offers to auto-join the WiFi network. No internet connection needed to join — the credentials are encoded directly in the QR image.",
+    inputSchema: z.object({
+      ssid: z.string().describe("WiFi network name (SSID)."),
+      password: z.string().optional().describe("WiFi password. Omit for open networks (use encryption='nopass')."),
+      encryption: z.enum(["WPA", "WEP", "nopass"]).default("WPA").describe("Encryption type. Default: WPA."),
+      hidden: z.boolean().optional().describe("Whether the network is hidden. Default: false."),
+      label: z.string().optional().describe("Label for this QR code."),
+      format: z.enum(["svg", "png"]).default("svg").describe("Image format."),
+      foreground_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for dots."),
+      background_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Hex color for background."),
+      dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
+      corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
+      logo_url: z.string().optional().describe("Logo URL or data URI."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { ssid, password, encryption, hidden, ...rest } = input;
+      return apiRequest("/api/qr", {
+        method: "POST",
+        body: {
+          type: "wifi",
+          wifi_data: { ssid, password, encryption, hidden },
+          ...rest,
+        },
+      });
+    },
+  },
+
+  update_vcard_qr: {
+    description:
+      "Update the contact details of a vCard QR code. Only works on QR codes created with type='vcard'. Partial updates merge with existing data. Note: updating vCard data changes the QR image content.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the vCard QR code to update."),
+      first_name: z.string().optional().describe("Contact first name."),
+      last_name: z.string().optional().describe("Contact last name."),
+      organization: z.string().optional().describe("Company or organization."),
+      title: z.string().optional().describe("Job title."),
+      email: z.string().optional().describe("Email address."),
+      phone: z.string().optional().describe("Phone number."),
+      url: z.string().optional().describe("Website URL."),
+      address: z.string().optional().describe("Street address."),
+      note: z.string().optional().describe("Additional notes."),
+      label: z.string().optional().describe("Update the label."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { short_id, label, ...vcardFields } = input;
+      const body: Record<string, unknown> = { vcard_data: vcardFields };
+      if (label !== undefined) body.label = label;
+      return apiRequest(`/api/qr/${short_id}`, { method: "PATCH", body });
+    },
+  },
+
+  update_wifi_qr: {
+    description:
+      "Update the WiFi credentials of a WiFi QR code. Only works on QR codes created with type='wifi'. Note: updating WiFi data changes the QR image content.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short ID of the WiFi QR code to update."),
+      ssid: z.string().optional().describe("WiFi network name."),
+      password: z.string().optional().describe("WiFi password."),
+      encryption: z.enum(["WPA", "WEP", "nopass"]).optional().describe("Encryption type."),
+      hidden: z.boolean().optional().describe("Whether the network is hidden."),
+      label: z.string().optional().describe("Update the label."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      const { short_id, label, ...wifiFields } = input;
+      const body: Record<string, unknown> = { wifi_data: wifiFields };
+      if (label !== undefined) body.label = label;
+      return apiRequest(`/api/qr/${short_id}`, { method: "PATCH", body });
+    },
+  },
+
   create_webhook: {
     description:
       "Register a webhook endpoint to receive real-time notifications when QR codes are scanned. Returns an HMAC-SHA256 secret for verifying webhook signatures — store it securely, it is only shown once.",

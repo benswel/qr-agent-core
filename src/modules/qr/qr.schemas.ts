@@ -8,12 +8,45 @@
 export const qrCreateSchema = {
   body: {
     type: "object" as const,
-    required: ["target_url"],
     properties: {
+      type: {
+        type: "string",
+        enum: ["url", "vcard", "wifi"],
+        default: "url",
+        description:
+          "QR code type. 'url' (default): encodes a redirect short URL — destination can be changed without regenerating the QR image. 'vcard': encodes contact data directly — phones prompt to save the contact. 'wifi': encodes WiFi credentials directly — phones prompt to join the network.",
+      },
       target_url: {
         type: "string",
         description:
-          "The destination URL that this QR code will redirect to. Must be a fully-qualified absolute URL (e.g., https://example.com). This URL can be changed later via PATCH without regenerating the QR code image.",
+          "The destination URL that this QR code will redirect to. Required for type='url'. Must be a fully-qualified absolute URL (e.g., https://example.com). This URL can be changed later via PATCH without regenerating the QR code image.",
+      },
+      vcard_data: {
+        type: "object",
+        description:
+          "Contact data for vCard QR codes. Required when type='vcard'. At minimum, first_name and last_name must be provided.",
+        properties: {
+          first_name: { type: "string", description: "Contact first name." },
+          last_name: { type: "string", description: "Contact last name." },
+          organization: { type: "string", description: "Company or organization name." },
+          title: { type: "string", description: "Job title." },
+          email: { type: "string", description: "Email address." },
+          phone: { type: "string", description: "Phone number." },
+          url: { type: "string", description: "Website URL." },
+          address: { type: "string", description: "Street address (free-form)." },
+          note: { type: "string", description: "Additional notes." },
+        },
+      },
+      wifi_data: {
+        type: "object",
+        description:
+          "WiFi credentials for WiFi QR codes. Required when type='wifi'. ssid is required.",
+        properties: {
+          ssid: { type: "string", description: "WiFi network name (SSID)." },
+          password: { type: "string", description: "WiFi password. Omit for open networks (encryption='nopass')." },
+          encryption: { type: "string", enum: ["WPA", "WEP", "nopass"], default: "WPA", description: "Encryption type." },
+          hidden: { type: "boolean", default: false, description: "Whether the network is hidden." },
+        },
       },
       label: {
         type: "string",
@@ -113,9 +146,12 @@ export const qrCreateSchema = {
         short_url: {
           type: "string",
           description:
-            "The full short URL that the QR code points to. Scanning the QR code navigates to this URL, which then redirects to target_url.",
+            "The full short URL that the QR code points to. For type='url', scanning redirects here. For vcard/wifi, this URL serves as a fallback.",
         },
-        target_url: { type: "string", description: "The current destination URL." },
+        type: { type: "string", enum: ["url", "vcard", "wifi"], description: "QR code type." },
+        target_url: { type: "string", nullable: true, description: "The current destination URL (type='url' only)." },
+        vcard_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured contact data (type='vcard' only)." },
+        wifi_data: { type: "object", nullable: true, additionalProperties: true, description: "Structured WiFi credentials (type='wifi' only)." },
         label: { type: "string", nullable: true, description: "Optional label." },
         format: { type: "string", description: "Image format (svg or png)." },
         image_data: {
@@ -148,7 +184,6 @@ export const qrBulkCreateSchema = {
         description: "Array of QR codes to create (max 50). Each item has the same schema as POST /api/qr.",
         items: {
           type: "object" as const,
-          required: ["target_url"],
           properties: qrItemProperties,
         },
       },
@@ -289,23 +324,48 @@ export const qrUpdateSchema = {
       target_url: {
         type: "string",
         description:
-          "New destination URL. Updating this does NOT change the QR code image — the same QR image will now redirect to this new URL. This is the core 'dynamic link' feature.",
+          "New destination URL. Updating this does NOT change the QR code image — the same QR image will now redirect to this new URL. This is the core 'dynamic link' feature. Only valid for type='url' QR codes.",
       },
       label: {
         type: "string",
         description: "Updated label for the QR code.",
       },
+      vcard_data: {
+        type: "object",
+        description: "Update vCard fields. Only valid for type='vcard' QR codes. Partial updates merge with existing data. Note: updating vCard data changes the QR image content.",
+        properties: {
+          first_name: { type: "string" },
+          last_name: { type: "string" },
+          organization: { type: "string" },
+          title: { type: "string" },
+          email: { type: "string" },
+          phone: { type: "string" },
+          url: { type: "string" },
+          address: { type: "string" },
+          note: { type: "string" },
+        },
+      },
+      wifi_data: {
+        type: "object",
+        description: "Update WiFi fields. Only valid for type='wifi' QR codes. Note: updating WiFi data changes the QR image content.",
+        properties: {
+          ssid: { type: "string" },
+          password: { type: "string" },
+          encryption: { type: "string", enum: ["WPA", "WEP", "nopass"] },
+          hidden: { type: "boolean" },
+        },
+      },
       expires_at: {
         type: ["string", "null"],
-        description: "ISO 8601 expiration date. Set to null to remove expiration.",
+        description: "ISO 8601 expiration date. Set to null to remove expiration. Only valid for type='url'.",
       },
       scheduled_url: {
         type: ["string", "null"],
-        description: "Replacement URL activated at scheduled_at. Set to null to cancel.",
+        description: "Replacement URL activated at scheduled_at. Set to null to cancel. Only valid for type='url'.",
       },
       scheduled_at: {
         type: ["string", "null"],
-        description: "ISO 8601 activation date for scheduled_url. Set to null to cancel.",
+        description: "ISO 8601 activation date for scheduled_url. Set to null to cancel. Only valid for type='url'.",
       },
     },
   },

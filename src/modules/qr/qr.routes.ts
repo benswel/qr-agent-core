@@ -26,28 +26,32 @@ export async function qrRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const body = request.body as {
-        target_url: string;
-        label?: string;
-        format?: "svg" | "png";
-        foreground_color?: string;
-        background_color?: string;
-        width?: number;
-        margin?: number;
-        error_correction?: "L" | "M" | "Q" | "H";
-        dot_style?: string;
-        corner_style?: string;
-        logo_url?: string;
-        logo_size?: number;
-      };
+      const body = request.body as Record<string, unknown>;
+      const type = (body.type as string) || "url";
 
-      try {
-        new URL(body.target_url);
-      } catch {
-        return sendError(reply, 400, Errors.invalidUrl(body.target_url));
+      // Conditional validation based on type
+      if (type === "url") {
+        if (!body.target_url) {
+          return sendError(reply, 400, Errors.missingField("target_url", "Required when type is 'url' (default)."));
+        }
+        try {
+          new URL(body.target_url as string);
+        } catch {
+          return sendError(reply, 400, Errors.invalidUrl(body.target_url as string));
+        }
+      } else if (type === "vcard") {
+        const vcard = body.vcard_data as Record<string, unknown> | undefined;
+        if (!vcard || !vcard.first_name || !vcard.last_name) {
+          return sendError(reply, 400, Errors.missingField("vcard_data", "Required with first_name and last_name when type is 'vcard'."));
+        }
+      } else if (type === "wifi") {
+        const wifi = body.wifi_data as Record<string, unknown> | undefined;
+        if (!wifi || !wifi.ssid) {
+          return sendError(reply, 400, Errors.missingField("wifi_data", "Required with ssid when type is 'wifi'."));
+        }
       }
 
-      const result = await qrService.createQrCode(body, request.apiKeyId, request.plan);
+      const result = await qrService.createQrCode(body as any, request.apiKeyId, request.plan);
 
       if ("error" in result && result.error === "QR_CODE_LIMIT_REACHED") {
         return sendError(reply, 403, Errors.qrCodeLimitReached(result.limit));
@@ -178,12 +182,28 @@ export async function qrRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const body = request.body as { items: Array<Record<string, unknown>> };
 
-      // Validate each URL
+      // Validate each item based on type
       for (const item of body.items) {
-        try {
-          new URL(item.target_url as string);
-        } catch {
-          return sendError(reply, 400, Errors.invalidUrl(item.target_url as string));
+        const itemType = (item.type as string) || "url";
+        if (itemType === "url") {
+          if (!item.target_url) {
+            return sendError(reply, 400, Errors.missingField("target_url", "Required for url-type items in bulk create."));
+          }
+          try {
+            new URL(item.target_url as string);
+          } catch {
+            return sendError(reply, 400, Errors.invalidUrl(item.target_url as string));
+          }
+        } else if (itemType === "vcard") {
+          const vcard = item.vcard_data as Record<string, unknown> | undefined;
+          if (!vcard || !vcard.first_name || !vcard.last_name) {
+            return sendError(reply, 400, Errors.missingField("vcard_data", "Required with first_name and last_name for vcard-type items."));
+          }
+        } else if (itemType === "wifi") {
+          const wifi = item.wifi_data as Record<string, unknown> | undefined;
+          if (!wifi || !wifi.ssid) {
+            return sendError(reply, 400, Errors.missingField("wifi_data", "Required with ssid for wifi-type items."));
+          }
         }
       }
 

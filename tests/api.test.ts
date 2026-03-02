@@ -1511,3 +1511,294 @@ describe("Enriched Analytics", () => {
     expect(body.top_countries).toEqual([]);
   });
 });
+
+// ─── vCard QR Codes ─────────────────────────────────────
+
+describe("vCard QR Codes", () => {
+  let vcardShortId: string;
+
+  it("should create a vCard QR code with required fields", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "vcard",
+        vcard_data: { first_name: "Jean", last_name: "Dupont" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    vcardShortId = body.short_id;
+    expect(body.type).toBe("vcard");
+    expect(body.vcard_data).toEqual({ first_name: "Jean", last_name: "Dupont" });
+    expect(body.target_url).toBeNull();
+    expect(body.image_data).toContain("<svg"); // QR image encodes vCard data as visual modules
+  });
+
+  it("should create a vCard QR code with all fields", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "vcard",
+        vcard_data: {
+          first_name: "Marie",
+          last_name: "Martin",
+          organization: "Acme Inc",
+          title: "CEO",
+          email: "marie@acme.com",
+          phone: "+33612345678",
+          url: "https://acme.com",
+          address: "123 Rue de Rivoli, Paris",
+          note: "VIP client",
+        },
+        label: "Marie business card",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.vcard_data.organization).toBe("Acme Inc");
+    expect(body.vcard_data.email).toBe("marie@acme.com");
+    expect(body.label).toBe("Marie business card");
+  });
+
+  it("should reject vCard without first_name or last_name", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "vcard",
+        vcard_data: { first_name: "Orphan" },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should return type=vcard in GET response", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${vcardShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe("vcard");
+    expect(body.vcard_data.first_name).toBe("Jean");
+    expect(body.vcard_data.last_name).toBe("Dupont");
+  });
+
+  it("should list vCard QR codes with type field", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/qr?limit=100",
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    const vcardItem = body.data.find((item: any) => item.short_id === vcardShortId);
+    expect(vcardItem).toBeTruthy();
+    expect(vcardItem.type).toBe("vcard");
+  });
+
+  it("should update vcard_data via PATCH (partial merge)", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${vcardShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: {
+        vcard_data: { email: "jean@dupont.fr", phone: "+33600000000" },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.vcard_data.first_name).toBe("Jean"); // preserved
+    expect(body.vcard_data.email).toBe("jean@dupont.fr"); // added
+    expect(body.vcard_data.phone).toBe("+33600000000"); // added
+  });
+
+  it("should serve .vcf file on GET /r/:shortId for vCard type", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${vcardShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/vcard");
+    expect(res.headers["content-disposition"]).toContain(".vcf");
+    expect(res.body).toContain("BEGIN:VCARD");
+    expect(res.body).toContain("Jean");
+    expect(res.body).toContain("Dupont");
+  });
+
+  it("should return QR image on GET /i/:shortId for vCard type", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/i/${vcardShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/svg+xml");
+    expect(res.body).toContain("<svg");
+  });
+});
+
+// ─── WiFi QR Codes ──────────────────────────────────────
+
+describe("WiFi QR Codes", () => {
+  let wifiShortId: string;
+
+  it("should create a WiFi QR code with WPA encryption", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "wifi",
+        wifi_data: { ssid: "MyNetwork", password: "secret123", encryption: "WPA" },
+        label: "Office WiFi",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    wifiShortId = body.short_id;
+    expect(body.type).toBe("wifi");
+    expect(body.wifi_data.ssid).toBe("MyNetwork");
+    expect(body.wifi_data.encryption).toBe("WPA");
+    expect(body.image_data).toContain("<svg"); // QR image encodes WiFi data as visual modules
+  });
+
+  it("should create a WiFi QR code with nopass encryption", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "wifi",
+        wifi_data: { ssid: "GuestNet", encryption: "nopass" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.wifi_data.encryption).toBe("nopass");
+  });
+
+  it("should reject WiFi without ssid", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "wifi",
+        wifi_data: { password: "noname" },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should return type=wifi in GET response", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${wifiShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe("wifi");
+    expect(body.wifi_data.ssid).toBe("MyNetwork");
+  });
+
+  it("should update wifi_data via PATCH", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/qr/${wifiShortId}`,
+      headers: { "x-api-key": apiKey },
+      payload: {
+        wifi_data: { password: "newpassword456" },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.wifi_data.ssid).toBe("MyNetwork"); // preserved
+    expect(body.wifi_data.password).toBe("newpassword456"); // updated
+  });
+
+  it("should return WiFi info JSON on GET /r/:shortId for WiFi type", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/r/${wifiShortId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe("wifi");
+    expect(body.ssid).toBe("MyNetwork");
+    expect(body.hint).toBeTruthy();
+  });
+});
+
+// ─── QR Type Edge Cases ─────────────────────────────────
+
+describe("QR Type Edge Cases", () => {
+  it("should default to type=url when no type specified", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { target_url: "https://backward-compat.example.com" },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.type).toBe("url");
+    expect(body.target_url).toBe("https://backward-compat.example.com");
+  });
+
+  it("should reject url type without target_url", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: { type: "url", label: "no-url" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_REQUIRED_FIELD");
+  });
+
+  it("should delete vCard/WiFi QR codes normally", async () => {
+    // Create a vCard QR to delete
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "vcard",
+        vcard_data: { first_name: "Delete", last_name: "Me" },
+      },
+    });
+    const { short_id } = createRes.json();
+
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/api/qr/${short_id}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(deleteRes.statusCode).toBe(200);
+    expect(deleteRes.json().deleted).toBe(true);
+  });
+
+  it("should handle WiFi with special characters in SSID", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        type: "wifi",
+        wifi_data: { ssid: 'Café "Le Bon";Wifi', password: "pass;word", encryption: "WPA" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    // The SVG should contain the escaped WiFi string
+    expect(res.json().image_data).toBeTruthy();
+  });
+});

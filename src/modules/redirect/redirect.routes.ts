@@ -3,9 +3,10 @@ import { eq, and, gt, count } from "drizzle-orm";
 import { db, schema } from "../../db/index.js";
 import { recordScan } from "./redirect.service.js";
 import { dispatchScannedEvent } from "../webhooks/webhooks.service.js";
+import { buildVCardString, buildWiFiString } from "../qr/qr.content.js";
 import { sendError, Errors } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
-import type { Plan } from "../../shared/types.js";
+import type { Plan, QrType, VCardData, WiFiData } from "../../shared/types.js";
 
 const { qrCodes, scanEvents, apiKeys } = schema;
 
@@ -125,6 +126,29 @@ export async function redirectRoutes(app: FastifyInstance) {
           row.apiKeyId
         ).catch(() => {
           // Webhook delivery failures are logged in webhook_deliveries table, don't block redirect
+        });
+      }
+
+      // Type-specific response
+      const type = (row.type as QrType) || "url";
+
+      if (type === "vcard" && row.typeData) {
+        const data: VCardData = JSON.parse(row.typeData);
+        const vcf = buildVCardString(data);
+        return reply
+          .type("text/vcard")
+          .header("Content-Disposition", `attachment; filename="${data.first_name}_${data.last_name}.vcf"`)
+          .send(vcf);
+      }
+
+      if (type === "wifi" && row.typeData) {
+        const data: WiFiData = JSON.parse(row.typeData);
+        return reply.send({
+          type: "wifi",
+          ssid: data.ssid,
+          encryption: data.encryption,
+          hidden: data.hidden || false,
+          hint: "This QR code contains WiFi credentials. Scan the QR image directly with your phone camera to auto-join the network.",
         });
       }
 

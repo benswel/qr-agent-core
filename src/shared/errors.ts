@@ -77,6 +77,12 @@ export const Errors = {
     hint: `Split your request into batches of ${max} items or fewer.`,
   }),
 
+  missingField: (field: string, detail: string): AgentError => ({
+    error: `Missing required field "${field}". ${detail}`,
+    code: "MISSING_REQUIRED_FIELD",
+    hint: `Include "${field}" in your request body. ${detail}`,
+  }),
+
   webhookLimitReached: (limit: number): AgentError => ({
     error: `Webhook limit reached. Your plan allows ${limit} webhook endpoint${limit === 1 ? "" : "s"}.`,
     code: "WEBHOOK_LIMIT_REACHED",
