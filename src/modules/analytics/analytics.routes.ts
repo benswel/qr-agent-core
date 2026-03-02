@@ -3,7 +3,7 @@ import { eq, and, count, sql, gt } from "drizzle-orm";
 import { db, schema } from "../../db/index.js";
 import { sendError, Errors } from "../../shared/errors.js";
 
-const { qrCodes, scanEvents } = schema;
+const { qrCodes, scanEvents, conversionEvents } = schema;
 
 const PERIOD_DAYS: Record<string, number> = {
   "7d": 7,
@@ -186,6 +186,32 @@ export async function analyticsRoutes(app: FastifyInstance) {
         .limit(50)
         .all();
 
+      // Conversion summary
+      const conversionCondition = periodStart
+        ? and(eq(conversionEvents.qrCodeId, qr.id), gt(conversionEvents.createdAt, periodStart))
+        : eq(conversionEvents.qrCodeId, qr.id);
+
+      const [{ totalConversions }] = db
+        .select({ totalConversions: count() })
+        .from(conversionEvents)
+        .where(conversionCondition)
+        .all();
+
+      const [{ totalValue }] = db
+        .select({ totalValue: sql<string | null>`SUM(CAST(${conversionEvents.value} AS REAL))` })
+        .from(conversionEvents)
+        .where(conversionCondition)
+        .all();
+
+      const topEventsRaw = db.all<{ event_name: string; count: number }>(
+        sql`SELECT ${conversionEvents.eventName} as event_name, COUNT(*) as count
+            FROM conversion_events
+            WHERE ${conversionCondition}
+            GROUP BY ${conversionEvents.eventName}
+            ORDER BY count DESC
+            LIMIT 5`
+      );
+
       return {
         short_id: shortId,
         total_scans: totalScans,
@@ -205,6 +231,11 @@ export async function analyticsRoutes(app: FastifyInstance) {
           country: s.country,
           city: s.city,
         })),
+        conversions: {
+          total: totalConversions,
+          total_value: totalValue ? parseFloat(totalValue) : 0,
+          top_events: topEventsRaw,
+        },
       };
     }
   );

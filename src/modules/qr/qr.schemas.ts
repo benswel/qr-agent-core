@@ -206,6 +206,35 @@ export const qrCreateSchema = {
           angle: { type: "number", minimum: 0, maximum: 360, description: "Gradient angle in degrees (linear only). 0 = left-to-right, 90 = top-to-bottom. Default: 0." },
         },
       },
+      frame_style: {
+        type: "string",
+        enum: ["none", "banner_bottom", "banner_top", "rounded"],
+        default: "none",
+        description:
+          "Decorative frame around the QR code. 'banner_bottom': CTA text below QR, 'banner_top': CTA text above QR, 'rounded': rounded border with text below. Requires frame_text.",
+      },
+      frame_text: {
+        type: "string",
+        maxLength: 30,
+        description:
+          "CTA text displayed on the frame (e.g. 'Scan Me!', 'View Menu'). Max 30 characters. Only used when frame_style is not 'none'.",
+      },
+      frame_color: {
+        type: "string",
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        description: "Hex color for the frame background/border. Default: foreground color (#000000).",
+      },
+      frame_text_color: {
+        type: "string",
+        pattern: "^#[0-9A-Fa-f]{6}$",
+        description: "Hex color for the frame text. Default: background color (#ffffff).",
+      },
+      frame_border_radius: {
+        type: "integer",
+        minimum: 0,
+        maximum: 20,
+        description: "Border radius for frame corners in pixels. Only used with 'rounded' frame style. Default: 0.",
+      },
       expires_at: {
         type: "string",
         description:

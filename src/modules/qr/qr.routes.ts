@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { parse as parseCsv } from "csv-parse/sync";
 import {
   qrCreateSchema,
   qrListSchema,
@@ -369,6 +370,118 @@ export async function qrRoutes(app: FastifyInstance) {
         .type("image/png")
         .header("Content-Disposition", `inline; filename="${shortId}.png"`)
         .send(buffer);
+    }
+  );
+
+  // BULK CREATE from CSV (Pro only, max 500 rows)
+  app.post(
+    "/bulk/csv",
+    {
+      schema: {
+        tags: ["QR Codes"],
+        summary: "Create QR codes from CSV upload (Pro only, max 500)",
+        description:
+          "Upload a CSV file or send CSV content as JSON to create up to 500 QR codes. Pro plan required. " +
+          "Supports multipart/form-data (file field 'csv') or application/json ({ csv_content: string }). " +
+          "Required CSV column: target_url. Optional: label, format, type, foreground_color, background_color, " +
+          "dot_style, corner_style, frame_style, frame_text, expires_at.",
+      },
+    },
+    async (request, reply) => {
+      // Pro-only check
+      if (request.plan !== "pro") {
+        return sendError(reply, 403, Errors.proRequired("Bulk CSV Upload"));
+      }
+
+      let csvContent: string;
+
+      // Detect content type
+      const contentType = request.headers["content-type"] || "";
+      if (contentType.includes("multipart/form-data")) {
+        const file = await request.file();
+        if (!file) {
+          return sendError(reply, 400, Errors.validationFailed("No file uploaded. Attach a CSV file with field name 'csv'."));
+        }
+        const buf = await file.toBuffer();
+        csvContent = buf.toString("utf-8");
+      } else {
+        const body = request.body as { csv_content?: string };
+        if (!body?.csv_content) {
+          return sendError(reply, 400, Errors.validationFailed("Missing csv_content in request body. Send { csv_content: \"target_url,label\\n...\" }."));
+        }
+        csvContent = body.csv_content;
+      }
+
+      // Parse CSV
+      let rows: Array<Record<string, string>>;
+      try {
+        rows = parseCsv(csvContent, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+      } catch (err) {
+        return sendError(reply, 400, Errors.validationFailed(`CSV parsing failed: ${err instanceof Error ? err.message : "invalid format"}`));
+      }
+
+      if (rows.length === 0) {
+        return sendError(reply, 400, Errors.validationFailed("CSV is empty. Include a header row and at least one data row."));
+      }
+
+      if (rows.length > 500) {
+        return sendError(reply, 400, Errors.bulkTooManyItems(500));
+      }
+
+      // Validate each row and build CreateQrInput items
+      const validationErrors: Array<{ row: number; error: string }> = [];
+      const items: Array<Record<string, unknown>> = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 1;
+        const type = row.type || "url";
+
+        // Build item from CSV columns
+        const item: Record<string, unknown> = {
+          type,
+          target_url: row.target_url,
+          label: row.label || undefined,
+          format: row.format || undefined,
+          foreground_color: row.foreground_color || undefined,
+          background_color: row.background_color || undefined,
+          dot_style: row.dot_style || undefined,
+          corner_style: row.corner_style || undefined,
+          frame_style: row.frame_style || undefined,
+          frame_text: row.frame_text || undefined,
+          expires_at: row.expires_at || undefined,
+        };
+
+        // Validate type-specific fields
+        const typeError = validateQrTypeFields(type, item);
+        if (typeError) {
+          validationErrors.push({ row: rowNum, error: typeError.error });
+          continue;
+        }
+
+        items.push(item);
+      }
+
+      if (validationErrors.length > 0) {
+        return sendError(reply, 400, Errors.csvValidationError(validationErrors));
+      }
+
+      // Create all QR codes via existing bulk service
+      const result = await qrService.bulkCreateQrCodes(
+        items as any,
+        request.apiKeyId,
+        request.plan
+      );
+
+      if ("error" in result && result.error === "QR_CODE_LIMIT_REACHED") {
+        return sendError(reply, 403, Errors.bulkQrCodeLimitReached(result.limit, result.existing, result.requested));
+      }
+
+      return reply.status(201).send(result);
     }
   );
 }

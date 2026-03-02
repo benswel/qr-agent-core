@@ -41,6 +41,11 @@ export interface CreateQrInput {
   utm_params?: UtmParams;
   gtm_container_id?: string;
   redirect_rules?: RedirectRule[];
+  frame_style?: string;
+  frame_text?: string;
+  frame_color?: string;
+  frame_text_color?: string;
+  frame_border_radius?: number;
 }
 
 export interface UpdateQrInput {
@@ -140,6 +145,11 @@ function buildStyleOptions(input: CreateQrInput): QrStyleOptions | undefined {
   if (input.logo_url) { style.logo_url = input.logo_url; hasStyle = true; }
   if (input.logo_size) { style.logo_size = input.logo_size; hasStyle = true; }
   if (input.gradient) { style.gradient = input.gradient; hasStyle = true; }
+  if (input.frame_style && input.frame_style !== "none") { style.frame_style = input.frame_style as QrStyleOptions["frame_style"]; hasStyle = true; }
+  if (input.frame_text) { style.frame_text = input.frame_text; hasStyle = true; }
+  if (input.frame_color) { style.frame_color = input.frame_color; hasStyle = true; }
+  if (input.frame_text_color) { style.frame_text_color = input.frame_text_color; hasStyle = true; }
+  if (input.frame_border_radius !== undefined) { style.frame_border_radius = input.frame_border_radius; hasStyle = true; }
 
   return hasStyle ? style : undefined;
 }

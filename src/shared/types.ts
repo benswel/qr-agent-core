@@ -128,6 +128,9 @@ export interface GradientOptions {
   angle?: number;    // 0-360, linear only (default: 0 = left-to-right)
 }
 
+/** Frame styles for decorative borders around QR codes */
+export type FrameStyle = "none" | "banner_bottom" | "banner_top" | "rounded";
+
 /** Style options for custom QR code rendering */
 export interface QrStyleOptions {
   foreground_color?: string;
@@ -140,6 +143,11 @@ export interface QrStyleOptions {
   corner_style?: "square" | "extra-rounded" | "dot";
   logo_url?: string;
   logo_size?: number;
+  frame_style?: FrameStyle;
+  frame_text?: string;
+  frame_color?: string;
+  frame_text_color?: string;
+  frame_border_radius?: number;
 }
 
 /** Standard paginated list response wrapper */

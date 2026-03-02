@@ -2741,3 +2741,426 @@ describe("Custom Domains", () => {
     expect(res.json().short_url).not.toContain("qr.testbrand.com");
   });
 });
+
+// ==================== Frames & Templates ====================
+describe("Frames & Templates", () => {
+  it("creates QR with banner_bottom frame", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-bottom",
+        frame_style: "banner_bottom",
+        frame_text: "Scan Me!",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<text");
+    expect(body.image_data).toContain("Scan Me!");
+    // viewBox height should be > width
+    const viewBoxMatch = body.image_data.match(/viewBox="0 0 (\d+) (\d+)"/);
+    expect(viewBoxMatch).toBeTruthy();
+    expect(Number(viewBoxMatch[2])).toBeGreaterThan(Number(viewBoxMatch[1]));
+  });
+
+  it("creates QR with banner_top frame", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-top",
+        frame_style: "banner_top",
+        frame_text: "Menu",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("<text");
+    expect(body.image_data).toContain("Menu");
+    // QR content should be translated down
+    expect(body.image_data).toContain("translate(0,");
+  });
+
+  it("creates QR with rounded frame", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-rounded",
+        frame_style: "rounded",
+        frame_text: "Visit Us",
+        frame_border_radius: 10,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.image_data).toContain("stroke=");
+    expect(body.image_data).toContain("Visit Us");
+  });
+
+  it("rejects frame_text longer than 30 chars", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/long-text",
+        frame_style: "banner_bottom",
+        frame_text: "This text is way too long for a frame label!",
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("frame persists in style_options and regenerates via /i/", async () => {
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-persist",
+        frame_style: "banner_bottom",
+        frame_text: "Persistent",
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const shortId = createRes.json().short_id;
+
+    // Regenerate via public image endpoint
+    const imgRes = await app.inject({
+      method: "GET",
+      url: `/i/${shortId}`,
+    });
+    expect(imgRes.statusCode).toBe(200);
+    expect(imgRes.body).toContain("Persistent");
+  });
+
+  it("creates PNG with frame", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-png",
+        format: "png",
+        frame_style: "banner_bottom",
+        frame_text: "PNG Frame",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().image_data).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("no frame elements when frame_style is omitted", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/no-frame" },
+    });
+    expect(res.statusCode).toBe(201);
+    const svg = res.json().image_data;
+    expect(svg).not.toContain("<text");
+    // viewBox should be square
+    const viewBoxMatch = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
+    expect(viewBoxMatch).toBeTruthy();
+    expect(Number(viewBoxMatch[1])).toBe(Number(viewBoxMatch[2]));
+  });
+
+  it("applies custom frame colors", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        target_url: "https://example.com/frame-colors",
+        frame_style: "banner_bottom",
+        frame_text: "Colorful",
+        frame_color: "#FF0000",
+        frame_text_color: "#00FF00",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const svg = res.json().image_data;
+    expect(svg).toContain("#FF0000");
+    expect(svg).toContain("#00FF00");
+  });
+});
+
+// ─── Conversion Tracking ────────────────────────────────────
+
+describe("Conversion Tracking", () => {
+  let convShortId: string;
+
+  it("creates a QR code for conversion tests", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/conversions" },
+    });
+    expect(res.statusCode).toBe(201);
+    convShortId = res.json().short_id;
+  });
+
+  it("POST /api/conversions — records a conversion", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/conversions",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { short_id: convShortId, event: "purchase", value: 49.99 },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.event).toBe("purchase");
+    expect(body.value).toBe(49.99);
+    expect(body.short_id).toBe(convShortId);
+    expect(body.created_at).toBeTruthy();
+  });
+
+  it("POST /api/conversions — records with metadata", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/conversions",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {
+        short_id: convShortId,
+        event: "signup",
+        metadata: { source: "newsletter" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.event).toBe("signup");
+    expect(body.metadata).toEqual({ source: "newsletter" });
+  });
+
+  it("POST /api/conversions — 404 for non-owned QR", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/conversions",
+      headers: { "x-api-key": apiKey2, "content-type": "application/json" },
+      payload: { short_id: convShortId, event: "purchase" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("POST /api/conversions — 404 for non-existent QR", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/conversions",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { short_id: "nonexistent_id", event: "purchase" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("GET /api/conversions/:shortId — returns stats", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/conversions/${convShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.short_id).toBe(convShortId);
+    expect(body.total_conversions).toBe(2);
+    expect(body.total_value).toBe(49.99);
+    expect(body.by_event).toHaveLength(2);
+    expect(body.by_day).toHaveLength(1);
+    expect(body.recent_events).toHaveLength(2);
+  });
+
+  it("GET /api/conversions/:shortId — filters by event", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/conversions/${convShortId}?event=purchase`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.total_conversions).toBe(1);
+    expect(body.by_event).toHaveLength(1);
+    expect(body.by_event[0].event_name).toBe("purchase");
+  });
+
+  it("GET /t/:shortId — tracking pixel returns GIF", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/t/${convShortId}?event=purchase&value=29.99`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe("image/gif");
+    // Check it recorded in DB
+    const statsRes = await app.inject({
+      method: "GET",
+      url: `/api/conversions/${convShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(statsRes.json().total_conversions).toBe(3);
+  });
+
+  it("GET /t/:shortId — pixel without event returns 400", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/t/${convShortId}`,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("MISSING_EVENT");
+  });
+
+  it("GET /t/:shortId — pixel with metadata", async () => {
+    const meta = encodeURIComponent(JSON.stringify({ order: "456" }));
+    const res = await app.inject({
+      method: "GET",
+      url: `/t/${convShortId}?event=checkout&meta=${meta}`,
+    });
+    expect(res.statusCode).toBe(200);
+    // Verify the metadata was stored
+    const statsRes = await app.inject({
+      method: "GET",
+      url: `/api/conversions/${convShortId}?event=checkout`,
+      headers: { "x-api-key": apiKey },
+    });
+    const recent = statsRes.json().recent_events;
+    expect(recent[0].metadata).toEqual({ order: "456" });
+  });
+
+  it("GET /api/analytics/:shortId — includes conversions section", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/analytics/${convShortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.conversions).toBeTruthy();
+    expect(body.conversions.total).toBeGreaterThanOrEqual(4);
+    expect(body.conversions.top_events).toBeInstanceOf(Array);
+  });
+
+  it("DELETE QR cascades conversion_events", async () => {
+    // Create a QR + conversion, then delete → check stats are gone
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/conv-cascade" },
+    });
+    const sid = createRes.json().short_id;
+    await app.inject({
+      method: "POST",
+      url: "/api/conversions",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { short_id: sid, event: "test" },
+    });
+    const delRes = await app.inject({
+      method: "DELETE",
+      url: `/api/qr/${sid}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(delRes.statusCode).toBe(200);
+    // QR is gone, stats should 404
+    const statsRes = await app.inject({
+      method: "GET",
+      url: `/api/conversions/${sid}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(statsRes.statusCode).toBe(404);
+  });
+});
+
+// ─── Bulk CSV Upload ────────────────────────────────────
+
+describe("Bulk CSV Upload", () => {
+  it("creates QR codes from CSV content (JSON body)", async () => {
+    const csv = "target_url,label\nhttps://example.com/csv1,CSV One\nhttps://example.com/csv2,CSV Two";
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { csv_content: csv },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.created).toBe(2);
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0].label).toBe("CSV One");
+  });
+
+  it("rejects empty CSV", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { csv_content: "target_url,label\n" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VALIDATION_ERROR");
+  });
+
+  it("rejects CSV with more than 500 rows", async () => {
+    const header = "target_url";
+    const rows = Array.from({ length: 501 }, (_, i) => `https://example.com/${i}`).join("\n");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { csv_content: `${header}\n${rows}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("BULK_TOO_MANY_ITEMS");
+  });
+
+  it("returns row-level errors for invalid rows", async () => {
+    // Row without target_url should fail validation
+    const csv = "target_url,label\nhttps://example.com/ok,Good\n,Bad Row";
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { csv_content: csv },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("CSV_VALIDATION_ERROR");
+  });
+
+  it("rejects free plan users", async () => {
+    const csv = "target_url\nhttps://example.com/free";
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { csv_content: csv },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("PRO_PLAN_REQUIRED");
+  });
+
+  it("supports style columns in CSV", async () => {
+    const csv = "target_url,foreground_color,frame_style,frame_text\nhttps://example.com/styled,#FF0000,banner_bottom,Scan Me";
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { csv_content: csv },
+    });
+    expect(res.statusCode).toBe(201);
+    const item = res.json().items[0];
+    expect(item.short_id).toBeTruthy();
+  });
+
+  it("rejects missing csv_content in JSON body", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr/bulk/csv",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

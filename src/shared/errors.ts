@@ -88,4 +88,16 @@ export const Errors = {
     code: "WEBHOOK_LIMIT_REACHED",
     hint: `You have reached the maximum of ${limit} webhook${limit === 1 ? "" : "s"} for your current plan. Delete an existing webhook or use the upgrade_to_pro tool to subscribe to Pro ($19/month) for unlimited webhooks.`,
   }),
+  proRequired: (feature: string): AgentError => ({
+    error: `The "${feature}" feature requires a Pro plan.`,
+    code: "PRO_PLAN_REQUIRED",
+    hint: `Upgrade to Pro ($19/month) using the upgrade_to_pro tool or POST /api/stripe/checkout to access ${feature}.`,
+  }),
+
+  csvValidationError: (errors: Array<{ row: number; error: string }>): AgentError => ({
+    error: `CSV validation failed with ${errors.length} error(s).`,
+    code: "CSV_VALIDATION_ERROR",
+    hint: "Fix the errors below and resubmit. Row numbers match the CSV (1-indexed, excluding header).",
+    docs: JSON.stringify(errors),
+  }),
 } as const;

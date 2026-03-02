@@ -160,6 +160,50 @@ async function deliverWebhook(
 }
 
 /**
+ * Dispatch qr.conversion event to all active webhooks for the given API key.
+ * Fire-and-forget: errors are logged but don't propagate.
+ */
+export async function dispatchConversionEvent(
+  shortId: string,
+  eventName: string,
+  value: number | null,
+  metadata: Record<string, unknown> | null,
+  apiKeyId: number
+): Promise<void> {
+  const activeWebhooks = db
+    .select()
+    .from(webhooks)
+    .where(and(eq(webhooks.apiKeyId, apiKeyId), eq(webhooks.isActive, true)))
+    .all();
+
+  if (activeWebhooks.length === 0) return;
+
+  const relevantWebhooks = activeWebhooks.filter((wh) => {
+    const events = JSON.parse(wh.events) as string[];
+    return events.includes("qr.conversion");
+  });
+
+  if (relevantWebhooks.length === 0) return;
+
+  const data = {
+    short_id: shortId,
+    event_name: eventName,
+    value,
+    metadata,
+  };
+
+  await Promise.allSettled(
+    relevantWebhooks.map((wh) =>
+      deliverWebhook(
+        { id: wh.id, url: wh.url, secret: wh.secret },
+        "qr.conversion",
+        data
+      )
+    )
+  );
+}
+
+/**
  * Dispatch qr.scanned event to all active webhooks for the given API key.
  * Fire-and-forget: errors are logged but don't propagate.
  */

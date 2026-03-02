@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import sharp from "sharp";
-import type { QrFormat, QrStyleOptions, GradientOptions } from "../../shared/types.js";
+import type { QrFormat, QrStyleOptions, GradientOptions, FrameStyle } from "../../shared/types.js";
 
 const DEFAULT_WIDTH = 400;
 const DEFAULT_MARGIN = 2;
@@ -184,6 +184,74 @@ function buildGradientDefs(gradient: GradientOptions, width: number): string {
   return `<defs><linearGradient id="qr-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="${half}" x2="${width}" y2="${half}"${transform}>${stops}</linearGradient></defs>`;
 }
 
+// --- Frame renderers ---
+
+interface FrameOptions {
+  style: FrameStyle;
+  text: string;
+  color: string;
+  textColor: string;
+  borderRadius: number;
+}
+
+interface SvgResult {
+  svg: string;
+  width: number;
+  height: number;
+}
+
+function renderFrameBanner(
+  qrWidth: number,
+  bannerHeight: number,
+  bannerY: number,
+  frame: FrameOptions
+): string {
+  const parts: string[] = [];
+  parts.push(
+    `<rect x="0" y="${bannerY}" width="${qrWidth}" height="${bannerHeight}" fill="${frame.color}"/>`
+  );
+  const textX = qrWidth / 2;
+  const textY = bannerY + bannerHeight / 2;
+  const fontSize = bannerHeight * 0.5;
+  parts.push(
+    `<text x="${textX}" y="${textY}" fill="${frame.textColor}" font-family="sans-serif" font-weight="bold" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central">${escapeXml(frame.text)}</text>`
+  );
+  return parts.join("\n");
+}
+
+function renderRoundedFrameBorder(
+  totalWidth: number,
+  totalHeight: number,
+  bannerHeight: number,
+  frame: FrameOptions
+): string {
+  const parts: string[] = [];
+  const strokeWidth = totalWidth * 0.02;
+  const rx = frame.borderRadius || totalWidth * 0.03;
+  // Outer border
+  parts.push(
+    `<rect x="${strokeWidth / 2}" y="${strokeWidth / 2}" width="${totalWidth - strokeWidth}" height="${totalHeight - strokeWidth}" rx="${rx}" ry="${rx}" fill="none" stroke="${frame.color}" stroke-width="${strokeWidth}"/>`
+  );
+  // Banner background at bottom inside the border
+  const bannerY = totalHeight - bannerHeight;
+  const bannerClipR = Math.max(0, rx - strokeWidth / 2);
+  parts.push(
+    `<path d="M ${strokeWidth} ${bannerY} L ${totalWidth - strokeWidth} ${bannerY} L ${totalWidth - strokeWidth} ${totalHeight - strokeWidth - bannerClipR} Q ${totalWidth - strokeWidth} ${totalHeight - strokeWidth} ${totalWidth - strokeWidth - bannerClipR} ${totalHeight - strokeWidth} L ${strokeWidth + bannerClipR} ${totalHeight - strokeWidth} Q ${strokeWidth} ${totalHeight - strokeWidth} ${strokeWidth} ${totalHeight - strokeWidth - bannerClipR} Z" fill="${frame.color}"/>`
+  );
+  // Text
+  const textX = totalWidth / 2;
+  const textY = bannerY + bannerHeight / 2;
+  const fontSize = bannerHeight * 0.5;
+  parts.push(
+    `<text x="${textX}" y="${textY}" fill="${frame.textColor}" font-family="sans-serif" font-weight="bold" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central">${escapeXml(frame.text)}</text>`
+  );
+  return parts.join("\n");
+}
+
+function escapeXml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
 /**
  * Build the complete SVG string from a QR matrix and style options.
  */
@@ -202,8 +270,9 @@ function buildSvg(
   >,
   logoDataUri?: string,
   logoSizeRatio?: number,
-  gradient?: GradientOptions
-): string {
+  gradient?: GradientOptions,
+  frame?: FrameOptions
+): SvgResult {
   const { modules, size } = matrix;
   const totalModules = size + options.margin * 2;
   const moduleSize = options.width / totalModules;
@@ -215,11 +284,17 @@ function buildSvg(
   const dotRenderer = getDotRenderer(options.dot_style);
   const finderRenderer = getFinderRenderer(options.corner_style);
 
+  // Calculate frame dimensions
+  const hasFrame = frame && frame.style !== "none" && frame.text;
+  const bannerHeight = hasFrame ? Math.round(options.width * 0.12) : 0;
+  const totalHeight = options.width + bannerHeight;
+  const qrOffsetY = hasFrame && frame.style === "banner_top" ? bannerHeight : 0;
+
   const parts: string[] = [];
 
   // SVG header
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${options.width} ${options.width}" width="${options.width}" height="${options.width}">`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${options.width} ${totalHeight}" width="${options.width}" height="${totalHeight}">`
   );
 
   // Gradient defs (if any)
@@ -229,17 +304,24 @@ function buildSvg(
 
   // Background
   parts.push(
-    `<rect x="0" y="0" width="${options.width}" height="${options.width}" fill="${bg}"/>`
+    `<rect x="0" y="0" width="${options.width}" height="${totalHeight}" fill="${bg}"/>`
   );
 
+  // Frame: banner_top renders banner first, then QR below
+  if (hasFrame && frame.style === "banner_top") {
+    parts.push(renderFrameBanner(options.width, bannerHeight, 0, frame));
+  }
+
+  // QR code group (offset vertically if banner_top)
+  if (qrOffsetY > 0) {
+    parts.push(`<g transform="translate(0, ${qrOffsetY})">`);
+  }
+
   // Render finder patterns
-  // Top-left
   parts.push(finderRenderer(offset, offset, moduleSize, fg, bg));
-  // Top-right
   parts.push(
     finderRenderer(offset + (size - 7) * moduleSize, offset, moduleSize, fg, bg)
   );
-  // Bottom-left
   parts.push(
     finderRenderer(offset, offset + (size - 7) * moduleSize, moduleSize, fg, bg)
   );
@@ -263,7 +345,6 @@ function buildSvg(
     const logoSize = options.width * logoSizeRatio;
     const logoX = (options.width - logoSize) / 2;
     const logoY = (options.width - logoSize) / 2;
-    // White background behind logo for readability
     const padding = logoSize * 0.1;
     parts.push(
       `<rect x="${logoX - padding}" y="${logoY - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" fill="${bg}" rx="${padding}"/>`
@@ -273,8 +354,22 @@ function buildSvg(
     );
   }
 
+  if (qrOffsetY > 0) {
+    parts.push("</g>");
+  }
+
+  // Frame: banner_bottom renders banner after QR
+  if (hasFrame && frame.style === "banner_bottom") {
+    parts.push(renderFrameBanner(options.width, bannerHeight, options.width, frame));
+  }
+
+  // Frame: rounded renders border + banner at bottom
+  if (hasFrame && frame.style === "rounded") {
+    parts.push(renderRoundedFrameBorder(options.width, totalHeight, bannerHeight, frame));
+  }
+
   parts.push("</svg>");
-  return parts.join("\n");
+  return { svg: parts.join("\n"), width: options.width, height: totalHeight };
 }
 
 /**
@@ -353,7 +448,19 @@ export async function renderQrCode(
     logoDataUri = await fetchLogo(logoUrl, logoPixelSize);
   }
 
-  const svgString = buildSvg(
+  // Build frame options
+  const frameStyle = style?.frame_style || "none";
+  const frame: FrameOptions | undefined = frameStyle !== "none" && style?.frame_text
+    ? {
+        style: frameStyle,
+        text: style.frame_text,
+        color: style?.frame_color || DEFAULT_FOREGROUND,
+        textColor: style?.frame_text_color || DEFAULT_BACKGROUND,
+        borderRadius: style?.frame_border_radius || 0,
+      }
+    : undefined;
+
+  const result = buildSvg(
     matrix,
     {
       foreground_color: fg,
@@ -365,16 +472,17 @@ export async function renderQrCode(
     },
     logoDataUri,
     logoUrl ? logoSize : undefined,
-    style?.gradient
+    style?.gradient,
+    frame
   );
 
   if (format === "svg") {
-    return svgString;
+    return result.svg;
   }
 
   // PNG: convert SVG to PNG using sharp
-  const pngBuffer = await sharp(Buffer.from(svgString))
-    .resize(width, width)
+  const pngBuffer = await sharp(Buffer.from(result.svg))
+    .resize(result.width, result.height)
     .png()
     .toBuffer();
 

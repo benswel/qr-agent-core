@@ -23,7 +23,7 @@ src/
 ├── app.ts                 # App builder: CORS, Swagger, auth plugin, route registration
 ├── config/index.ts        # Env vars: PORT, HOST, BASE_URL, DATABASE_URL, SHORT_ID_LENGTH, ADMIN_SECRET
 ├── db/
-│   ├── schema.ts          # Drizzle schema: api_keys, qr_codes, scan_events
+│   ├── schema.ts          # Drizzle schema: api_keys, qr_codes, scan_events, webhooks, webhook_deliveries, conversion_events
 │   ├── index.ts           # better-sqlite3 + drizzle-orm init (WAL mode)
 │   └── migrate.ts         # Auto-migration on startup
 ├── shared/
@@ -33,6 +33,7 @@ src/
 │   ├── auth/              # X-API-Key auth plugin + key management
 │   ├── qr/                # CRUD routes, service, schemas, custom SVG renderer
 │   ├── domain/            # Custom domain management (GET/PUT/DELETE /api/domain + DNS checker)
+│   ├── conversions/       # Conversion tracking (pixel + API + webhook dispatch)
 │   ├── redirect/          # GET /r/:shortId — public redirect + scan recording + webhook dispatch
 │   ├── analytics/         # GET /api/analytics/:shortId — scan stats
 │   ├── webhooks/          # Webhook CRUD + HMAC delivery + delivery logging
@@ -54,7 +55,7 @@ packages/
 - **Validation:** Zod + Fastify JSON Schema
 - **UA parsing:** `ua-parser-js` (device type, browser, OS extraction at scan time)
 - **Geo lookup:** `geoip-lite` (IP → country + city, MaxMind GeoLite2 embedded)
-- **Tests:** Vitest (168 integration tests)
+- **Tests:** Vitest (195 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -92,6 +93,9 @@ npm run key:list       # List API keys
 - **GTM container:** QR codes (type=url) support `gtm_container_id`. When set, redirects serve an intermediate HTML page with Google Tag Manager head/noscript snippets + meta refresh (1s delay).
 - **Conditional redirects:** QR codes (type=url) support `redirect_rules` (JSON array). Rules evaluated top-to-bottom; conditions: device, os, country, language, time_range, ab_split. First match wins, else default target_url.
 - **Custom domains:** Pro users can set a custom domain on their API key (`custom_domain` column on `api_keys`). When set, all new QR code short URLs use `https://custom-domain/r/...` instead of `BASE_URL`. Redirect endpoint is domain-agnostic — works on any domain once DNS is configured. DNS status check via `dns.promises` (CNAME + A record). Managed via GET/PUT/DELETE `/api/domain`.
+- **Conversion tracking:** Dual approach — tracking pixel (GET /t/:shortId?event=purchase&value=49.99, returns 1×1 GIF, zero-JS) + authenticated API (POST /api/conversions). Both fire webhook qr.conversion. Analytics endpoint includes conversion summary.
+- **Frames & templates:** Decorative frames around QR codes (banner_top, banner_bottom, rounded) with CTA text. Config stored in style_options JSON — no new DB columns. SVG viewBox height increases to fit frame. PNG respects non-square dimensions.
+- **CSV bulk upload:** Pro-only. Upload CSV via multipart or JSON { csv_content }. Max 500 rows. Validates per-row with line numbers. Reuses bulkCreateQrCodes() after parsing.
 
 ## Database tables
 
@@ -102,6 +106,7 @@ npm run key:list       # List API keys
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP, device_type, browser, os, country, city |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
 | `webhook_deliveries` | Delivery log: status, response code, error messages |
+| `conversion_events` | Conversion tracking: event name, value, metadata, referer, IP, timestamp. Linked to qr_codes via qr_code_id with cascade delete |
 
 ## API endpoints
 
@@ -113,6 +118,9 @@ npm run key:list       # List API keys
 - `DELETE /api/qr/:shortId` — delete + cascade analytics
 - `GET /api/qr/:shortId/image` — download image (regenerated with stored style)
 - `GET /api/analytics/:shortId` — scan stats
+- `POST /api/conversions` — record a conversion event for a QR code you own
+- `GET /api/conversions/:shortId` — get conversion stats (totals, by_event, by_day, recent)
+- `POST /api/qr/bulk/csv` — create up to 500 QR codes from CSV (Pro only)
 - `POST /api/webhooks` — register webhook endpoint (returns HMAC secret)
 - `GET /api/webhooks` — list webhooks
 - `DELETE /api/webhooks/:id` — delete webhook
@@ -131,6 +139,7 @@ npm run key:list       # List API keys
 - `POST /api/stripe/webhook` — Stripe webhook handler (signature-verified)
 - `GET /r/:shortId` — redirect (records scan)
 - `GET /i/:shortId` — serve QR image
+- `GET /t/:shortId` — tracking pixel for conversions (returns 1×1 GIF)
 - `GET /health` — health check
 - `GET /documentation` — Swagger UI
 

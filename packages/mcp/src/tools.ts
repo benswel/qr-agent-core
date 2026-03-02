@@ -73,6 +73,16 @@ export const tools = {
         colors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}$/)).min(2).describe("2+ hex colors, evenly distributed."),
         angle: z.number().min(0).max(360).optional().describe("Angle in degrees (linear only). 0=left-to-right, 90=top-to-bottom."),
       }).optional().describe("Apply a gradient to QR dots and corners instead of solid foreground_color."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional()
+        .describe("Decorative frame around QR. 'banner_bottom': text below, 'banner_top': text above, 'rounded': rounded border with text."),
+      frame_text: z.string().max(30).optional()
+        .describe("CTA text on the frame (e.g. 'Scan Me!', 'View Menu'). Max 30 chars. Requires frame_style."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional()
+        .describe("Hex color for frame background. Default: #000000."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional()
+        .describe("Hex color for frame text. Default: #ffffff."),
+      frame_border_radius: z.number().min(0).max(20).optional()
+        .describe("Frame corner radius. Only for 'rounded' style."),
       expires_at: z
         .string()
         .optional()
@@ -283,6 +293,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { first_name, last_name, organization, title, email, phone, url, address, note, ...rest } = input;
@@ -312,6 +326,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { ssid, password, encryption, hidden, ...rest } = input;
@@ -385,6 +403,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { to, subject, body, cc, bcc, ...rest } = input;
@@ -408,6 +430,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { phone_number, message, ...rest } = input;
@@ -430,6 +456,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { phone_number, ...rest } = input;
@@ -456,6 +486,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { summary, start, end, location, description, ...rest } = input;
@@ -478,6 +512,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { content, ...rest } = input;
@@ -502,6 +540,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { latitude, longitude, label, qr_label, ...rest } = input;
@@ -531,6 +573,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { facebook, instagram, twitter, linkedin, youtube, tiktok, github, website, ...rest } = input;
@@ -555,6 +601,10 @@ export const tools = {
       dot_style: z.enum(["square", "rounded", "dots", "classy-rounded"]).optional().describe("Dot shape."),
       corner_style: z.enum(["square", "extra-rounded", "dot"]).optional().describe("Corner shape."),
       logo_url: z.string().optional().describe("Logo URL or data URI."),
+      frame_style: z.enum(["none", "banner_bottom", "banner_top", "rounded"]).optional().describe("Frame style around QR."),
+      frame_text: z.string().max(30).optional().describe("CTA text on frame (max 30 chars)."),
+      frame_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame background color."),
+      frame_text_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Frame text color."),
     }),
     handler: async (input: Record<string, unknown>) => {
       const { ios_url, android_url, fallback_url, ...rest } = input;
@@ -768,6 +818,72 @@ export const tools = {
     inputSchema: z.object({}),
     handler: async () => {
       return apiRequest("/api/domain");
+    },
+  },
+
+  bulk_create_from_csv: {
+    description:
+      "Create up to 500 QR codes from CSV data. Pro plan required. Send the CSV content as a string. " +
+      "Required column: target_url. Optional columns: label, format, type, foreground_color, background_color, " +
+      "dot_style, corner_style, frame_style, frame_text, expires_at. Returns all created QR codes.",
+    inputSchema: z.object({
+      csv_content: z
+        .string()
+        .describe(
+          'CSV content as a string with header row. Example: "target_url,label\\nhttps://example.com,My QR\\nhttps://other.com,Other QR"'
+        ),
+    }),
+    handler: async (input: { csv_content: string }) => {
+      return apiRequest("/api/qr/bulk/csv", {
+        method: "POST",
+        body: { csv_content: input.csv_content },
+      });
+    },
+  },
+
+  record_conversion: {
+    description:
+      "Record a post-scan conversion event (purchase, signup, etc.) for a QR code you own. Use this to track ROI — e.g., when a user scans a QR code and then makes a purchase, record a 'purchase' conversion with the order value. For client-side tracking without code, use the tracking pixel: <img src=\"https://yourhost/t/{short_id}?event=purchase&value=49.99\">.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short_id of the QR code this conversion is for."),
+      event: z
+        .string()
+        .max(100)
+        .describe(
+          'The conversion event name (e.g., "purchase", "signup", "add_to_cart"). Use consistent names to aggregate stats.'
+        ),
+      value: z
+        .number()
+        .optional()
+        .describe("Optional monetary value of the conversion (e.g., 49.99)."),
+      metadata: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Optional JSON metadata (e.g., product ID, order number)."),
+    }),
+    handler: async (input: Record<string, unknown>) => {
+      return apiRequest("/api/conversions", { method: "POST", body: input });
+    },
+  },
+
+  get_conversions: {
+    description:
+      "Get conversion statistics for a QR code. Returns total conversions, total value, breakdowns by event name, daily trends, and recent events. Use this to measure QR code ROI and understand which codes drive the most value.",
+    inputSchema: z.object({
+      short_id: z.string().describe("The short_id of the QR code to get conversion stats for."),
+      period: z
+        .enum(["7d", "30d", "90d", "all"])
+        .default("30d")
+        .describe("Time period for aggregations. Default: 30d."),
+      event: z
+        .string()
+        .optional()
+        .describe("Filter by event name (e.g., 'purchase')."),
+    }),
+    handler: async (input: { short_id: string; period: string; event?: string }) => {
+      const query: Record<string, string> = { period: input.period };
+      if (input.event) query.event = input.event;
+      return apiRequest(`/api/conversions/${input.short_id}`, { query });
     },
   },
 };

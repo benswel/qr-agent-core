@@ -10,10 +10,10 @@ export const webhookCreateSchema = {
       },
       events: {
         type: "array",
-        items: { type: "string", enum: ["qr.scanned"] },
+        items: { type: "string", enum: ["qr.scanned", "qr.conversion"] },
         default: ["qr.scanned"],
         description:
-          'Events to subscribe to. Currently supported: "qr.scanned" (triggered when a QR code is scanned via its short URL).',
+          'Events to subscribe to. Supported: "qr.scanned" (triggered on scan/redirect), "qr.conversion" (triggered when a conversion is recorded).',
       },
     },
   },

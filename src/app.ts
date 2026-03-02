@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -13,6 +14,7 @@ import { imageRoutes } from "./modules/image/image.routes.js";
 import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
 import { stripeRoutes } from "./modules/stripe/stripe.routes.js";
 import { domainRoutes } from "./modules/domain/domain.routes.js";
+import { conversionsRoutes, conversionPixelRoutes } from "./modules/conversions/conversions.routes.js";
 import authPlugin from "./modules/auth/auth.plugin.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { generateApiKey, listApiKeys } from "./modules/auth/auth.service.js";
@@ -36,6 +38,9 @@ export async function buildApp() {
 
   // CORS — open by default for agent access
   await app.register(cors, { origin: true });
+
+  // Multipart file upload support (for CSV bulk upload)
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
 
   // Rate limiting — global baseline, individual routes can override
   await app.register(rateLimit, { max: isTest ? 10_000 : 100, timeWindow: "1 minute" });
@@ -103,6 +108,11 @@ export async function buildApp() {
             "Configure a custom domain for your QR code short URLs. Pro plan only. One domain per API key.",
         },
         {
+          name: "Conversions",
+          description:
+            "Track post-scan conversions (purchases, signups) for measuring QR code ROI. Supports both server-side API and client-side tracking pixel.",
+        },
+        {
           name: "Discovery",
           description:
             "Machine-readable manifests for AI agent and crawler discovery (.well-known endpoints).",
@@ -145,6 +155,8 @@ export async function buildApp() {
   await app.register(webhooksRoutes, { prefix: "/api/webhooks" });
   await app.register(stripeRoutes, { prefix: "/api/stripe" });
   await app.register(domainRoutes, { prefix: "/api/domain" });
+  await app.register(conversionsRoutes, { prefix: "/api/conversions" });
+  await app.register(conversionPixelRoutes);
   await app.register(wellKnownRoutes);
 
   // Global error handler — agent-friendly errors

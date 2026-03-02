@@ -214,6 +214,23 @@ export function runMigrations() {
   // Unique index on custom_domain (SQLite allows multiple NULLs in unique indexes)
   db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_custom_domain ON api_keys(custom_domain)`);
 
+  // Create conversion_events table (Conversion Tracking feature)
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS conversion_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      qr_code_id INTEGER NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+      event_name TEXT NOT NULL,
+      value TEXT,
+      metadata TEXT,
+      referer TEXT,
+      ip TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_conversion_events_qr_code_id ON conversion_events(qr_code_id)`);
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_conversion_events_event_name ON conversion_events(event_name)`);
+
   // Drop legacy pro_waitlist table (Pro is now live via Stripe)
   db.run(sql`DROP TABLE IF EXISTS pro_waitlist`);
 }

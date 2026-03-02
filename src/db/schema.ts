@@ -115,6 +115,25 @@ export const webhookDeliveries = sqliteTable("webhook_deliveries", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+/**
+ * Conversion events: track post-scan actions (purchases, signups, etc.)
+ * for measuring QR code ROI.
+ */
+export const conversionEvents = sqliteTable("conversion_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  qrCodeId: integer("qr_code_id")
+    .notNull()
+    .references(() => qrCodes.id, { onDelete: "cascade" }),
+  eventName: text("event_name").notNull(),
+  value: text("value"),
+  metadata: text("metadata"),
+  referer: text("referer"),
+  ip: text("ip"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export type QrCode = typeof qrCodes.$inferSelect;
 export type NewQrCode = typeof qrCodes.$inferInsert;
 export type ScanEvent = typeof scanEvents.$inferSelect;
@@ -125,3 +144,5 @@ export type Webhook = typeof webhooks.$inferSelect;
 export type NewWebhook = typeof webhooks.$inferInsert;
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type NewWebhookDelivery = typeof webhookDeliveries.$inferInsert;
+export type ConversionEvent = typeof conversionEvents.$inferSelect;
+export type NewConversionEvent = typeof conversionEvents.$inferInsert;
