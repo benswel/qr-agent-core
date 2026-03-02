@@ -716,15 +716,15 @@ export const tools = {
 
   set_redirect_rules: {
     description:
-      "Set conditional redirect rules on a URL QR code. Rules are evaluated top-to-bottom on each scan; the first matching rule's URL is used. If no rule matches, the default target_url applies. Conditions: 'device' (mobile/tablet/desktop), 'os' (iOS/Android/Windows/macOS/Linux), 'country' (ISO alpha-2 like 'FR'), 'language' (ISO 639-1 like 'fr'), 'time_range' ({start:'09:00',end:'17:00',timezone:'Europe/Paris'}), 'ab_split' ({percentage:50}). Pass an empty array to remove all rules.",
+      "Set conditional redirect rules on a URL QR code. Rules are evaluated top-to-bottom; each rule has an array of conditions (AND logic) — all must match. First matching rule's URL is used. If no rule matches, the default target_url applies. Conditions: 'device' (mobile/tablet/desktop), 'os' (iOS/Android/Windows/macOS/Linux), 'country' (ISO alpha-2 like 'FR'), 'language' (ISO 639-1 like 'fr'), 'time_range' ({start:'09:00',end:'17:00',timezone:'Europe/Paris'}), 'ab_split' ({percentage:50}). Combine conditions in a single rule for AND logic (e.g. mobile + FR). Pass an empty array to remove all rules.",
     inputSchema: z.object({
       short_id: z.string().describe("The short ID of the QR code (must be type='url')."),
       rules: z.array(z.object({
-        condition: z.object({
+        conditions: z.array(z.object({
           type: z.enum(["device", "os", "country", "language", "time_range", "ab_split"]).describe("Condition type."),
           value: z.unknown().describe("Condition value. String for device/os/country/language. Object for time_range and ab_split."),
-        }),
-        target_url: z.string().url().describe("URL to redirect to when this rule matches."),
+        })).min(1).describe("Array of conditions (AND logic). All must match for this rule to trigger."),
+        target_url: z.string().url().describe("URL to redirect to when all conditions match."),
       })).describe("Array of redirect rules. Empty array to clear all rules."),
     }),
     handler: async (input: { short_id: string; rules: unknown[] }) => {

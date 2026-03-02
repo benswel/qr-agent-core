@@ -2348,9 +2348,9 @@ describe("Conditional Redirects", () => {
         target_url: "https://example.com/default",
         label: "rules-test",
         redirect_rules: [
-          { condition: { type: "device", value: "mobile" }, target_url: "https://m.example.com" },
-          { condition: { type: "os", value: "iOS" }, target_url: "https://ios.example.com" },
-          { condition: { type: "language", value: "fr" }, target_url: "https://fr.example.com" },
+          { conditions: [{ type: "device", value: "mobile" }], target_url: "https://m.example.com" },
+          { conditions: [{ type: "os", value: "iOS" }], target_url: "https://ios.example.com" },
+          { conditions: [{ type: "language", value: "fr" }], target_url: "https://fr.example.com" },
         ],
       },
     });
@@ -2406,7 +2406,7 @@ describe("Conditional Redirects", () => {
       payload: {
         target_url: "https://example.com",
         redirect_rules: [
-          { condition: { type: "device", value: "mobile" }, target_url: "not-a-url" },
+          { conditions: [{ type: "device", value: "mobile" }], target_url: "not-a-url" },
         ],
       },
     });
@@ -2422,7 +2422,7 @@ describe("Conditional Redirects", () => {
       payload: {
         target_url: "https://example.com",
         redirect_rules: [
-          { condition: { type: "invalid_type", value: "test" }, target_url: "https://example.com/mobile" },
+          { conditions: [{ type: "invalid_type", value: "test" }], target_url: "https://example.com/mobile" },
         ],
       },
     });
@@ -2436,13 +2436,13 @@ describe("Conditional Redirects", () => {
       headers: { "x-api-key": apiKey },
       payload: {
         redirect_rules: [
-          { condition: { type: "device", value: "tablet" }, target_url: "https://tablet.example.com" },
+          { conditions: [{ type: "device", value: "tablet" }], target_url: "https://tablet.example.com" },
         ],
       },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().redirect_rules).toHaveLength(1);
-    expect(res.json().redirect_rules[0].condition.value).toBe("tablet");
+    expect(res.json().redirect_rules[0].conditions[0].value).toBe("tablet");
   });
 
   it("should clear redirect_rules when set to null", async () => {
@@ -2454,6 +2454,69 @@ describe("Conditional Redirects", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().redirect_rules).toBeNull();
+  });
+
+  it("should support multi-condition rules (AND logic)", async () => {
+    // Create QR with a rule: mobile AND French → french mobile URL
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey },
+      payload: {
+        target_url: "https://example.com/default",
+        redirect_rules: [
+          {
+            conditions: [
+              { type: "device", value: "mobile" },
+              { type: "language", value: "fr" },
+            ],
+            target_url: "https://m.fr.example.com",
+          },
+          {
+            conditions: [{ type: "device", value: "mobile" }],
+            target_url: "https://m.example.com",
+          },
+        ],
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const sid = create.json().short_id;
+
+    // Mobile + French → matches first rule (both conditions met)
+    const r1 = await app.inject({
+      method: "GET",
+      url: `/r/${sid}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+        "accept-language": "fr-FR,fr;q=0.9",
+      },
+    });
+    expect(r1.statusCode).toBe(302);
+    expect(r1.headers.location).toBe("https://m.fr.example.com");
+
+    // Mobile + English → first rule fails (language doesn't match), second rule matches
+    const r2 = await app.inject({
+      method: "GET",
+      url: `/r/${sid}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    });
+    expect(r2.statusCode).toBe(302);
+    expect(r2.headers.location).toBe("https://m.example.com");
+
+    // Desktop + French → neither rule matches → default
+    const r3 = await app.inject({
+      method: "GET",
+      url: `/r/${sid}`,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
+        "accept-language": "fr-FR,fr;q=0.9",
+      },
+    });
+    expect(r3.statusCode).toBe(302);
+    expect(r3.headers.location).toBe("https://example.com/default");
   });
 });
 

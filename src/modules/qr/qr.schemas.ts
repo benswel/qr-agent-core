@@ -227,19 +227,22 @@ export const qrCreateSchema = {
       redirect_rules: {
         type: "array",
         description:
-          "Conditional redirect rules evaluated top-to-bottom on each scan. First matching rule's target_url is used; if none match, the default target_url applies. Only for type='url'. Conditions: device (mobile/tablet/desktop), os (iOS/Android/Windows/macOS/Linux), country (ISO 3166-1 alpha-2), language (ISO 639-1 from Accept-Language), time_range ({start,end,timezone}), ab_split ({percentage: 0-100}).",
+          "Conditional redirect rules evaluated top-to-bottom on each scan. Each rule has an array of conditions (AND logic) — all must match for the rule to trigger. First matching rule's target_url is used; if none match, the default target_url applies. Only for type='url'. Condition types: device (mobile/tablet/desktop), os (iOS/Android/Windows/macOS/Linux), country (ISO 3166-1 alpha-2), language (ISO 639-1 from Accept-Language), time_range ({start,end,timezone}), ab_split ({percentage: 0-100}).",
         items: {
           type: "object",
           properties: {
-            condition: {
-              type: "object",
-              description: "The condition to evaluate.",
-              properties: {
-                type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"], description: "Condition type." },
-                value: { description: "Condition value. String for device/os/country/language. Object for time_range ({start,end,timezone}) and ab_split ({percentage})." },
+            conditions: {
+              type: "array",
+              description: "Array of conditions that must ALL match (AND logic). At least one condition is required.",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"], description: "Condition type." },
+                  value: { description: "Condition value. String for device/os/country/language. Object for time_range ({start,end,timezone}) and ab_split ({percentage})." },
+                },
               },
             },
-            target_url: { type: "string", description: "URL to redirect to when this rule matches." },
+            target_url: { type: "string", description: "URL to redirect to when all conditions match." },
           },
         },
       },
@@ -559,15 +562,18 @@ export const qrUpdateSchema = {
       },
       redirect_rules: {
         type: ["array", "null"],
-        description: "Conditional redirect rules. Set to null to clear. Only valid for type='url'.",
+        description: "Conditional redirect rules (AND logic per rule). Set to null to clear. Only valid for type='url'.",
         items: {
           type: "object",
           properties: {
-            condition: {
-              type: "object",
-              properties: {
-                type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"] },
-                value: {},
+            conditions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: ["device", "os", "country", "language", "time_range", "ab_split"] },
+                  value: {},
+                },
               },
             },
             target_url: { type: "string" },

@@ -53,15 +53,20 @@ function validateQrTypeFields(type: string, body: Record<string, unknown>) {
 
 const VALID_CONDITION_TYPES = new Set(["device", "os", "country", "language", "time_range", "ab_split"]);
 
-/** Validate redirect_rules target URLs and condition types */
+/** Validate redirect_rules target URLs and conditions */
 function validateRedirectRules(rules: unknown[]): ReturnType<typeof Errors.missingField> | null {
   for (const rule of rules) {
     const r = rule as Record<string, unknown>;
     if (!r.target_url) return Errors.missingField("redirect_rules[].target_url", "Each rule must have a target_url.");
     try { new URL(r.target_url as string); } catch { return Errors.invalidUrl(r.target_url as string); }
-    const cond = r.condition as Record<string, unknown> | undefined;
-    if (!cond || !cond.type || !VALID_CONDITION_TYPES.has(cond.type as string)) {
-      return Errors.missingField("redirect_rules[].condition.type", "Must be one of: device, os, country, language, time_range, ab_split.");
+    const conditions = r.conditions as Array<Record<string, unknown>> | undefined;
+    if (!conditions || !Array.isArray(conditions) || conditions.length === 0) {
+      return Errors.missingField("redirect_rules[].conditions", "Each rule must have at least one condition in the conditions array.");
+    }
+    for (const cond of conditions) {
+      if (!cond.type || !VALID_CONDITION_TYPES.has(cond.type as string)) {
+        return Errors.missingField("redirect_rules[].conditions[].type", "Must be one of: device, os, country, language, time_range, ab_split.");
+      }
     }
   }
   return null;

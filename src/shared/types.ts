@@ -115,9 +115,9 @@ export interface RedirectCondition {
   value: string | TimeRangeValue | AbSplitValue;
 }
 
-/** A redirect rule: condition + target URL */
+/** A redirect rule: one or more conditions (AND logic) + target URL */
 export interface RedirectRule {
-  condition: RedirectCondition;
+  conditions: RedirectCondition[];
   target_url: string;
 }
 

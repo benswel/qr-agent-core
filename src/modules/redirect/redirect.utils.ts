@@ -56,43 +56,49 @@ export function applyUtmParams(targetUrl: string, utm: UtmParams): string {
   return url.toString();
 }
 
-/** Evaluate redirect rules top-to-bottom. Returns matching target_url or null. */
-export function evaluateRules(rules: RedirectRule[], parsed: ParsedRequest): string | null {
-  for (const rule of rules) {
-    const { type, value } = rule.condition;
-    let match = false;
-
-    switch (type) {
-      case "device":
-        match = parsed.deviceType === value;
-        break;
-      case "os":
-        match = (parsed.os?.toLowerCase() ?? "") === (value as string).toLowerCase();
-        break;
-      case "country":
-        match = parsed.country === (value as string).toUpperCase();
-        break;
-      case "language":
-        match = parsed.language === (value as string).toLowerCase();
-        break;
-      case "time_range": {
-        const { start, end, timezone } = value as TimeRangeValue;
-        try {
-          const now = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
-          match = now >= start && now <= end;
-        } catch {
-          // Invalid timezone — skip rule
-        }
-        break;
-      }
-      case "ab_split": {
-        const { percentage } = value as AbSplitValue;
-        match = Math.random() * 100 < percentage;
-        break;
+/** Evaluate a single condition against parsed request data */
+function evaluateCondition(cond: { type: string; value: unknown }, parsed: ParsedRequest): boolean {
+  switch (cond.type) {
+    case "device":
+      return parsed.deviceType === cond.value;
+    case "os":
+      return (parsed.os?.toLowerCase() ?? "") === (cond.value as string).toLowerCase();
+    case "country":
+      return parsed.country === (cond.value as string).toUpperCase();
+    case "language":
+      return parsed.language === (cond.value as string).toLowerCase();
+    case "time_range": {
+      const { start, end, timezone } = cond.value as TimeRangeValue;
+      try {
+        const now = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
+        return now >= start && now <= end;
+      } catch {
+        return false;
       }
     }
+    case "ab_split": {
+      const { percentage } = cond.value as AbSplitValue;
+      return Math.random() * 100 < percentage;
+    }
+    default:
+      return false;
+  }
+}
 
-    if (match) return rule.target_url;
+/** Evaluate redirect rules top-to-bottom. All conditions in a rule must match (AND). Returns matching target_url or null. */
+export function evaluateRules(rules: RedirectRule[], parsed: ParsedRequest): string | null {
+  for (const rule of rules) {
+    // Support both new "conditions" (array) and legacy "condition" (single object)
+    const conditions: Array<{ type: string; value: unknown }> =
+      rule.conditions ??
+      ((rule as unknown as { condition?: { type: string; value: unknown } }).condition
+        ? [(rule as unknown as { condition: { type: string; value: unknown } }).condition]
+        : []);
+
+    if (conditions.length === 0) continue;
+
+    const allMatch = conditions.every(cond => evaluateCondition(cond, parsed));
+    if (allMatch) return rule.target_url;
   }
   return null;
 }
