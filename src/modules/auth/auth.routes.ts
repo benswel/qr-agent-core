@@ -1,13 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { eq, and, gt, count } from "drizzle-orm";
+import { eq, and, gt, gte, count, sql } from "drizzle-orm";
 import { generateApiKey } from "./auth.service.js";
 import { sendError } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 import { db, schema } from "../../db/index.js";
 import { config } from "../../config/index.js";
 
-const { apiKeys, qrCodes, scanEvents, webhooks } = schema;
+const { apiKeys, qrCodes, scanEvents, webhooks, webhookDeliveries } = schema;
 
 const registerBodySchema = z.object({
   email: z.string().email(),
@@ -257,6 +257,98 @@ export async function authRoutes(app: FastifyInstance) {
         .all();
 
       return { count: keys.length, keys };
+    }
+  );
+
+  app.get(
+    "/api/admin/stats",
+    { schema: { tags: ["Admin"], summary: "Dashboard metrics", hide: true } },
+    async (request, reply) => {
+      const denied = checkAdminSecret(request, reply);
+      if (denied) return denied;
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Users by plan
+      const planBreakdown = db
+        .select({ plan: apiKeys.plan, total: count() })
+        .from(apiKeys)
+        .groupBy(apiKeys.plan)
+        .all();
+
+      const usersByPlan: Record<string, number> = {};
+      let totalUsers = 0;
+      for (const row of planBreakdown) {
+        usersByPlan[row.plan] = row.total;
+        totalUsers += row.total;
+      }
+
+      // Recent signups (last 7 days)
+      const [{ recentSignups }] = db
+        .select({ recentSignups: count() })
+        .from(apiKeys)
+        .where(gte(apiKeys.createdAt, sevenDaysAgo))
+        .all();
+
+      // Active users (used in last 7 days)
+      const [{ activeUsers }] = db
+        .select({ activeUsers: count() })
+        .from(apiKeys)
+        .where(gte(apiKeys.lastUsedAt, sevenDaysAgo))
+        .all();
+
+      // QR codes
+      const [{ totalQr }] = db
+        .select({ totalQr: count() })
+        .from(qrCodes)
+        .all();
+
+      // Scans
+      const [{ totalScans }] = db
+        .select({ totalScans: count() })
+        .from(scanEvents)
+        .all();
+
+      const [{ scansLast30d }] = db
+        .select({ scansLast30d: count() })
+        .from(scanEvents)
+        .where(gte(scanEvents.scannedAt, thirtyDaysAgo))
+        .all();
+
+      // Webhooks
+      const [{ totalWebhooks }] = db
+        .select({ totalWebhooks: count() })
+        .from(webhooks)
+        .all();
+
+      // Webhook deliveries last 30 days
+      const [{ deliveriesLast30d }] = db
+        .select({ deliveriesLast30d: count() })
+        .from(webhookDeliveries)
+        .where(gte(webhookDeliveries.deliveredAt, thirtyDaysAgo))
+        .all();
+
+      return {
+        users: {
+          total: totalUsers,
+          by_plan: usersByPlan,
+          signups_last_7d: recentSignups,
+          active_last_7d: activeUsers,
+        },
+        qr_codes: {
+          total: totalQr,
+        },
+        scans: {
+          total: totalScans,
+          last_30d: scansLast30d,
+        },
+        webhooks: {
+          total: totalWebhooks,
+          deliveries_last_30d: deliveriesLast30d,
+        },
+      };
     }
   );
 

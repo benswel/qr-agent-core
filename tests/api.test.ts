@@ -968,4 +968,33 @@ describe("Admin Endpoints", () => {
     expect(body.keys[0]).not.toHaveProperty("key"); // key should not be exposed
   });
 
+  it("should return dashboard stats with correct admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/stats",
+      headers: { "x-admin-secret": "test-admin-secret" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.users.total).toBeGreaterThanOrEqual(3);
+    expect(body.users.by_plan).toHaveProperty("free");
+    expect(body.users).toHaveProperty("signups_last_7d");
+    expect(body.users).toHaveProperty("active_last_7d");
+    expect(body.qr_codes).toHaveProperty("total");
+    expect(body.scans).toHaveProperty("total");
+    expect(body.scans).toHaveProperty("last_30d");
+    expect(body.webhooks).toHaveProperty("total");
+    expect(body.webhooks).toHaveProperty("deliveries_last_30d");
+  });
+
+  it("should reject stats without admin secret", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/admin/stats",
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
 });

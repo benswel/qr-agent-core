@@ -120,6 +120,7 @@ npm run key:list       # List API keys
 
 **Admin** (`X-Admin-Secret` header required):
 - `GET /api/admin/keys` — list all registered API keys
+- `GET /api/admin/stats` — dashboard metrics (users by plan, QR codes, scans, webhooks, recent activity)
 
 ## Environment variables
 
