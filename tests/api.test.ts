@@ -2584,3 +2584,160 @@ describe("UTM + GTM Combined", () => {
     expect(html).toContain("utm_medium=print");
   });
 });
+
+// ============================================================
+// Custom Domains
+// ============================================================
+describe("Custom Domains", () => {
+  it("GET /api/domain returns null when no domain set", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.custom_domain).toBeNull();
+    expect(body.dns_status).toBeNull();
+  });
+
+  it("PUT /api/domain rejects free plan users", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/domain",
+      headers: { "x-api-key": freeApiKey, "content-type": "application/json" },
+      payload: { domain: "qr.freeuser.com" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe("PRO_REQUIRED");
+  });
+
+  it("PUT /api/domain sets a custom domain", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { domain: "qr.testbrand.com" },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.custom_domain).toBe("qr.testbrand.com");
+    expect(["active", "pending"]).toContain(body.dns_status);
+  });
+
+  it("PUT /api/domain rejects invalid formats", async () => {
+    // Has protocol
+    const r1 = await app.inject({
+      method: "PUT",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { domain: "https://qr.test.com" },
+    });
+    expect(r1.statusCode).toBe(400);
+    expect(r1.json().code).toBe("INVALID_DOMAIN");
+
+    // No dot
+    const r2 = await app.inject({
+      method: "PUT",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { domain: "nodot" },
+    });
+    expect(r2.statusCode).toBe(400);
+    expect(r2.json().code).toBe("INVALID_DOMAIN");
+  });
+
+  it("PUT /api/domain rejects duplicate domain", async () => {
+    // apiKey already has "qr.testbrand.com", try to claim it with apiKey2
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey2, "content-type": "application/json" },
+      payload: { domain: "qr.testbrand.com" },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().code).toBe("DOMAIN_ALREADY_TAKEN");
+  });
+
+  it("GET /api/domain returns domain with DNS status", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.custom_domain).toBe("qr.testbrand.com");
+    expect(typeof body.dns_status).toBe("string");
+  });
+
+  it("POST /api/qr short_url uses custom domain", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/custom-domain-test" },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().short_url).toMatch(/^https:\/\/qr\.testbrand\.com\/r\//);
+  });
+
+  it("GET /api/qr/:shortId short_url uses custom domain", async () => {
+    // Create a QR first
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/cd-get-test" },
+    });
+    const shortId = create.json().short_id;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/qr/${shortId}`,
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().short_url).toMatch(/^https:\/\/qr\.testbrand\.com\/r\//);
+  });
+
+  it("DELETE /api/domain removes the custom domain", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().message).toContain("qr.testbrand.com");
+
+    // Verify it's gone
+    const get = await app.inject({
+      method: "GET",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey },
+    });
+    expect(get.json().custom_domain).toBeNull();
+  });
+
+  it("DELETE /api/domain returns 404 when no domain set", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/domain",
+      headers: { "x-api-key": apiKey2 },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("NO_CUSTOM_DOMAIN");
+  });
+
+  it("POST /api/qr short_url uses default domain after removal", async () => {
+    // apiKey no longer has custom domain (removed above)
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/qr",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      payload: { target_url: "https://example.com/no-custom-domain" },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().short_url).not.toContain("qr.testbrand.com");
+  });
+});

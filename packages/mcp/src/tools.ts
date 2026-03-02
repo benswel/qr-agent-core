@@ -739,4 +739,35 @@ export const tools = {
       return apiRequest(`/api/qr/${input.short_id}`, { method: "PATCH", body });
     },
   },
+
+  set_custom_domain: {
+    description:
+      "Set a custom domain for your QR code short URLs (Pro plan required). When set, all new QR codes will use https://your-domain.com/r/... instead of the default URL. You must configure DNS (CNAME) to point to the QR Agent server. Pass domain=null to remove the custom domain.",
+    inputSchema: z.object({
+      domain: z
+        .string()
+        .nullable()
+        .describe(
+          "Your custom domain without protocol (e.g. 'qr.mybrand.com'). Pass null to remove."
+        ),
+    }),
+    handler: async (input: { domain: string | null }) => {
+      if (input.domain === null) {
+        return apiRequest("/api/domain", { method: "DELETE" });
+      }
+      return apiRequest("/api/domain", {
+        method: "PUT",
+        body: { domain: input.domain },
+      });
+    },
+  },
+
+  get_custom_domain: {
+    description:
+      "Get your current custom domain configuration and DNS verification status. Returns the domain, whether DNS is active or pending, and setup instructions.",
+    inputSchema: z.object({}),
+    handler: async () => {
+      return apiRequest("/api/domain");
+    },
+  },
 };

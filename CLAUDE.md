@@ -32,6 +32,7 @@ src/
 ├── modules/
 │   ├── auth/              # X-API-Key auth plugin + key management
 │   ├── qr/                # CRUD routes, service, schemas, custom SVG renderer
+│   ├── domain/            # Custom domain management (GET/PUT/DELETE /api/domain + DNS checker)
 │   ├── redirect/          # GET /r/:shortId — public redirect + scan recording + webhook dispatch
 │   ├── analytics/         # GET /api/analytics/:shortId — scan stats
 │   ├── webhooks/          # Webhook CRUD + HMAC delivery + delivery logging
@@ -53,7 +54,7 @@ packages/
 - **Validation:** Zod + Fastify JSON Schema
 - **UA parsing:** `ua-parser-js` (device type, browser, OS extraction at scan time)
 - **Geo lookup:** `geoip-lite` (IP → country + city, MaxMind GeoLite2 embedded)
-- **Tests:** Vitest (154 integration tests)
+- **Tests:** Vitest (168 integration tests)
 - **Deploy:** Docker + Railway
 
 ## Key commands
@@ -90,12 +91,13 @@ npm run key:list       # List API keys
 - **UTM parameters:** QR codes (type=url) support `utm_params` (JSON). UTM source/medium/campaign/term/content are auto-appended to the redirect URL via URLSearchParams.
 - **GTM container:** QR codes (type=url) support `gtm_container_id`. When set, redirects serve an intermediate HTML page with Google Tag Manager head/noscript snippets + meta refresh (1s delay).
 - **Conditional redirects:** QR codes (type=url) support `redirect_rules` (JSON array). Rules evaluated top-to-bottom; conditions: device, os, country, language, time_range, ab_split. First match wins, else default target_url.
+- **Custom domains:** Pro users can set a custom domain on their API key (`custom_domain` column on `api_keys`). When set, all new QR code short URLs use `https://custom-domain/r/...` instead of `BASE_URL`. Redirect endpoint is domain-agnostic — works on any domain once DNS is configured. DNS status check via `dns.promises` (CNAME + A record). Managed via GET/PUT/DELETE `/api/domain`.
 
 ## Database tables
 
 | Table | Purpose |
 |-------|---------|
-| `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, expiration, last-used tracking |
+| `api_keys` | Key storage with label, email, plan (free/pro), Stripe IDs, custom_domain, expiration, last-used tracking |
 | `qr_codes` | QR metadata, target URLs, format, type (11 types), type_data (JSON), style_options (JSON), expires_at, scheduled_url/scheduled_at, utm_params (JSON), gtm_container_id, redirect_rules (JSON), tenant isolation via `api_key_id` |
 | `scan_events` | Scan tracking: timestamp, user-agent, referer, IP, device_type, browser, os, country, city |
 | `webhooks` | Webhook endpoints per API key, HMAC secret, subscribed events |
@@ -120,6 +122,9 @@ npm run key:list       # List API keys
 - `DELETE /api/qr/bulk` — delete up to 50 QR codes in one request (partial success)
 - `POST /api/stripe/checkout` — create Stripe Checkout session to upgrade to Pro ($19/month)
 - `POST /api/stripe/portal` — open Stripe Customer Portal for billing management
+- `GET /api/domain` — get custom domain configuration and DNS status
+- `PUT /api/domain` — set custom domain (Pro only, unique per account)
+- `DELETE /api/domain` — remove custom domain
 
 **Public** (no auth):
 - `POST /api/register` — self-service API key registration (rate-limited)

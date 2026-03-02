@@ -6,6 +6,7 @@ import { renderQrCode } from "./qr.renderer.js";
 import { buildVCardString, buildWiFiString, buildEmailString, buildSMSString, buildPhoneString, buildEventString, buildTextString, buildLocationString } from "./qr.content.js";
 import type { QrFormat, QrStyleOptions, GradientOptions, Plan, QrType, VCardData, WiFiData, EmailData, SMSData, PhoneData, EventData, TextData, LocationData, SocialData, AppStoreData, UtmParams, RedirectRule } from "../../shared/types.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
+import { getCustomDomain } from "../auth/auth.service.js";
 
 const { qrCodes } = schema;
 
@@ -82,10 +83,16 @@ function getQrContent(type: QrType, shortUrl: string, typeData: string | null): 
   }
 }
 
+/** Build the short URL, using custom domain if set */
+function buildShortUrl(shortId: string, customDomain?: string | null): string {
+  if (customDomain) return `https://${customDomain}/r/${shortId}`;
+  return `${config.baseUrl}/r/${shortId}`;
+}
+
 /** Format a DB row into the API response shape */
-function formatQrResponse(row: typeof qrCodes.$inferSelect) {
+function formatQrResponse(row: typeof qrCodes.$inferSelect, customDomain?: string | null) {
   const type = (row.type as QrType) || "url";
-  const shortUrl = `${config.baseUrl}/r/${row.shortId}`;
+  const shortUrl = buildShortUrl(row.shortId, customDomain);
   const typeData = row.typeData ? JSON.parse(row.typeData) : null;
 
   return {
@@ -154,7 +161,8 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
 
   const shortId = nanoid(config.shortId.length);
   const format = input.format || "svg";
-  const shortUrl = `${config.baseUrl}/r/${shortId}`;
+  const customDomain = getCustomDomain(apiKeyId);
+  const shortUrl = buildShortUrl(shortId, customDomain);
   const type = input.type || "url";
 
   // Determine QR matrix content and storage values based on type
@@ -207,7 +215,7 @@ export async function createQrCode(input: CreateQrInput, apiKeyId: number, plan:
     .get();
 
   return {
-    ...formatQrResponse(inserted),
+    ...formatQrResponse(inserted, customDomain),
     image_data: imageData,
   };
 }
@@ -221,7 +229,8 @@ export function getQrCode(shortId: string, apiKeyId: number) {
 
   if (!row) return null;
 
-  return formatQrResponse(row);
+  const customDomain = getCustomDomain(apiKeyId);
+  return formatQrResponse(row, customDomain);
 }
 
 export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: number) {
@@ -239,8 +248,9 @@ export function listQrCodes(limit: number = 20, offset: number = 0, apiKeyId: nu
     .where(eq(qrCodes.apiKeyId, apiKeyId))
     .all();
 
+  const customDomain = getCustomDomain(apiKeyId);
   return {
-    data: rows.map(formatQrResponse),
+    data: rows.map((row) => formatQrResponse(row, customDomain)),
     total,
     offset,
     limit,
@@ -290,7 +300,8 @@ export function updateQrCode(shortId: string, input: UpdateQrInput, apiKeyId: nu
     .returning()
     .get();
 
-  return formatQrResponse(updated);
+  const customDomain = getCustomDomain(apiKeyId);
+  return formatQrResponse(updated, customDomain);
 }
 
 export function deleteQrCode(shortId: string, apiKeyId: number): boolean {
@@ -322,7 +333,8 @@ export async function getQrImage(shortId: string, formatOverride?: QrFormat, api
   if (!row) return null;
 
   const format = formatOverride || (row.format as QrFormat);
-  const shortUrl = `${config.baseUrl}/r/${row.shortId}`;
+  const customDomainForImage = row.apiKeyId ? getCustomDomain(row.apiKeyId) : null;
+  const shortUrl = buildShortUrl(row.shortId, customDomainForImage);
   const type = (row.type as QrType) || "url";
   const qrContent = getQrContent(type, shortUrl, row.typeData);
   const styleOptions: QrStyleOptions | undefined = row.styleOptions
@@ -362,11 +374,12 @@ export async function bulkCreateQrCodes(
     }
   }
 
+  const customDomain = getCustomDomain(apiKeyId);
   const results = [];
   for (const input of items) {
     const shortId = nanoid(config.shortId.length);
     const format = input.format || "svg";
-    const shortUrl = `${config.baseUrl}/r/${shortId}`;
+    const shortUrl = buildShortUrl(shortId, customDomain);
     const type = input.type || "url";
 
     let targetUrl: string;
@@ -412,7 +425,7 @@ export async function bulkCreateQrCodes(
       .get();
 
     results.push({
-      ...formatQrResponse(inserted),
+      ...formatQrResponse(inserted, customDomain),
       image_data: imageData,
     });
   }

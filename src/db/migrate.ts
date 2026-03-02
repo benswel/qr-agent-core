@@ -204,6 +204,16 @@ export function runMigrations() {
     // Column already exists — ignore
   }
 
+  // Migration: add custom_domain column to api_keys (Custom Domains feature)
+  try {
+    db.run(sql`ALTER TABLE api_keys ADD COLUMN custom_domain TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Unique index on custom_domain (SQLite allows multiple NULLs in unique indexes)
+  db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_custom_domain ON api_keys(custom_domain)`);
+
   // Drop legacy pro_waitlist table (Pro is now live via Stripe)
   db.run(sql`DROP TABLE IF EXISTS pro_waitlist`);
 }

@@ -131,6 +131,31 @@ export function getApiKeyByStripeCustomerId(stripeCustomerId: string): ApiKey | 
     .get();
 }
 
+export function getCustomDomain(keyId: number): string | null {
+  const row = db
+    .select({ customDomain: apiKeys.customDomain })
+    .from(apiKeys)
+    .where(eq(apiKeys.id, keyId))
+    .get();
+  return row?.customDomain || null;
+}
+
+export function setCustomDomain(keyId: number, domain: string | null): void {
+  db.update(apiKeys)
+    .set({ customDomain: domain })
+    .where(eq(apiKeys.id, keyId))
+    .run();
+}
+
+export function isCustomDomainTaken(domain: string, excludeKeyId: number): boolean {
+  const row = db
+    .select({ id: apiKeys.id })
+    .from(apiKeys)
+    .where(eq(apiKeys.customDomain, domain))
+    .get();
+  return !!row && row.id !== excludeKeyId;
+}
+
 export function revokeApiKey(id: number): boolean {
   const existing = db
     .select()
