@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { eq, and, gt, gte, count, sql } from "drizzle-orm";
 import { generateApiKey } from "./auth.service.js";
+import { sendWelcomeEmail } from "../email/email.service.js";
 import { sendError } from "../../shared/errors.js";
 import { PLAN_LIMITS } from "../../shared/types.js";
 import { db, schema } from "../../db/index.js";
@@ -82,6 +83,8 @@ export async function authRoutes(app: FastifyInstance) {
 
       const { email, label } = parsed.data;
       const result = generateApiKey(label || email, email);
+
+      sendWelcomeEmail(email, result.key, result.label);
 
       return reply.status(201).send({
         key: result.key,

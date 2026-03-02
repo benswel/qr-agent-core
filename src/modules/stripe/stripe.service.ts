@@ -7,6 +7,11 @@ import {
   setStripeCustomerId,
   setStripeSubscriptionId,
 } from "../auth/auth.service.js";
+import {
+  sendProUpgradeEmail,
+  sendCancellationEmail,
+  sendPaymentFailedEmail,
+} from "../email/email.service.js";
 
 let stripeClient: Stripe | null = null;
 
@@ -105,6 +110,10 @@ export async function handleWebhookEvent(
         if (session.subscription) {
           setStripeSubscriptionId(apiKeyId, session.subscription as string);
         }
+        const apiKeyRecord = getApiKeyById(apiKeyId);
+        if (apiKeyRecord?.email) {
+          sendProUpgradeEmail(apiKeyRecord.email);
+        }
       }
       break;
     }
@@ -136,6 +145,9 @@ export async function handleWebhookEvent(
       if (apiKey) {
         setApiKeyPlan(apiKey.id, "free");
         setStripeSubscriptionId(apiKey.id, null);
+        if (apiKey.email) {
+          sendCancellationEmail(apiKey.email);
+        }
       }
       break;
     }
@@ -158,12 +170,13 @@ export async function handleWebhookEvent(
     }
 
     case "invoice.payment_failed": {
-      // Log only — Stripe retries automatically.
-      // Downgrade happens via customer.subscription.deleted after all retries fail.
-      console.warn(
-        "Stripe invoice.payment_failed for customer:",
-        (event.data.object as Stripe.Invoice).customer
-      );
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = invoice.customer as string;
+      console.warn("Stripe invoice.payment_failed for customer:", customerId);
+      const failedApiKey = getApiKeyByStripeCustomerId(customerId);
+      if (failedApiKey?.email) {
+        sendPaymentFailedEmail(failedApiKey.email);
+      }
       break;
     }
   }

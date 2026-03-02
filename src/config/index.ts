@@ -17,4 +17,8 @@ export const config = {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
     priceId: process.env.STRIPE_PRICE_ID || "",
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || "",
+    from: process.env.RESEND_FROM || "QR for Agent <hi@qrforagent.com>",
+  },
 } as const;
