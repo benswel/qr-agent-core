@@ -44,8 +44,8 @@ export async function imageRoutes(app: FastifyInstance) {
         return sendError(reply, 404, Errors.notFound("QR code", shortId));
       }
 
-      // Cache for 5 minutes — the image doesn't change even if the target URL does
-      reply.header("Cache-Control", "public, max-age=300");
+      // Cache for 24 hours — the QR image never changes (it encodes the short URL, not the destination)
+      reply.header("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
 
       if (result.format === "svg") {
         return reply

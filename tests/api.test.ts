@@ -289,7 +289,7 @@ describe("Image Endpoints", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("image/svg+xml");
-    expect(res.headers["cache-control"]).toContain("max-age=300");
+    expect(res.headers["cache-control"]).toContain("max-age=86400");
     expect(res.body).toContain("<svg");
   });
 

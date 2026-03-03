@@ -16,6 +16,12 @@ export async function redirectRoutes(app: FastifyInstance) {
   app.get(
     "/r/:shortId",
     {
+      config: {
+        rateLimit: {
+          max: 500,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         params: {
           type: "object" as const,
