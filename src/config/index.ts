@@ -19,6 +19,6 @@ export const config = {
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
-    from: process.env.RESEND_FROM || "QR for Agent <hi@qrforagent.com>",
+    from: process.env.RESEND_FROM || "QR for Agent <qrforagent@send.swel.fr>",
   },
 } as const;
