@@ -1,5 +1,7 @@
 # QR Agent Core
 
+[![benswel/qr-agent-core MCP server](https://glama.ai/mcp/servers/benswel/qr-agent-core/badges/score.svg)](https://glama.ai/mcp/servers/benswel/qr-agent-core)
+
 QR-as-a-Service API built for AI agents. Create, update, and track dynamic QR codes programmatically via REST API or MCP (37 tools).
 
 QR codes point to short URLs (`/r/:shortId`) that you can retarget at any time — the QR image never changes, but scanning it goes to the new destination. Multi-tenant by design, with full scan analytics.
