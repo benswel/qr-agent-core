@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3100";
+const BASE_URL = process.env.BASE_URL || "https://api.qrforagent.com";
 const API_KEY = process.env.API_KEY || "";
 
 interface RequestOptions {

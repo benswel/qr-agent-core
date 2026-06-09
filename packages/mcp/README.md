@@ -4,7 +4,7 @@ MCP server for dynamic QR codes — create, style, track, and update QR codes fr
 
 **37 tools** for [Claude Desktop](https://claude.ai/download), [Cursor](https://cursor.com), [Windsurf](https://codeium.com/windsurf), [VS Code](https://code.visualstudio.com), and any [MCP](https://modelcontextprotocol.io/)-compatible client.
 
-**Website:** [qrforagent.com](https://qrforagent.com) &nbsp;|&nbsp; **Docs:** [qrforagent.com/docs](https://qrforagent.com/docs) &nbsp;|&nbsp; **GitHub:** [benswel/qr-agent-core](https://github.com/benswel/qr-agent-core)
+**Website:** [qrforagent.com](https://qrforagent.com) &nbsp;|&nbsp; **Docs:** [qrforagent.com/docs](https://qrforagent.com/docs) &nbsp;|&nbsp; **GitHub:** [benswel/qr-for-agent-api](https://github.com/benswel/qr-for-agent-api)
 
 ## Why QR for Agent?
 
@@ -91,7 +91,7 @@ Add to `.vscode/mcp.json`:
 | Variable   | Required | Default                  | Description                          |
 | ---------- | -------- | ------------------------ | ------------------------------------ |
 | `API_KEY`  | Yes      | —                        | Your QR for Agent API key            |
-| `BASE_URL` | No       | Production API           | Custom instance URL (self-hosting)   |
+| `BASE_URL` | No       | https://api.qrforagent.com | Custom instance URL (self-hosting)   |
 
 ## Tools (37)
 
@@ -193,15 +193,15 @@ The `create_qr_code` tool (and all `create_*_qr` tools) supports:
 
 ## How It Works
 
-This MCP server is a thin HTTP client (~5 KB). It forwards tool calls to the QR Agent Core API, which handles QR generation, storage, redirects, and analytics. The QR codes are "dynamic" — you can change the destination URL at any time without regenerating the QR image.
+This MCP server is a thin HTTP client (~5 KB). It forwards tool calls to the QR for Agent API, which handles QR generation, storage, redirects, and analytics. The QR codes are "dynamic" — you can change the destination URL at any time without regenerating the QR image.
 
 ## Self-Hosting
 
-QR Agent Core is open source (MIT). You can self-host:
+QR for Agent is open source (MIT). You can self-host:
 
 ```bash
-git clone https://github.com/benswel/qr-agent-core.git
-cd qr-agent-core
+git clone https://github.com/benswel/qr-for-agent-api.git
+cd qr-for-agent-api
 npm install && npm run dev
 ```
 

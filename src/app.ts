@@ -49,12 +49,12 @@ export async function buildApp() {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: "QR Agent Core",
+        title: "QR for Agent",
         description:
           "QR-as-a-Service API designed for AI agents. Create managed QR codes with dynamic short URLs, update destinations without regenerating images, and track scan analytics. Every response is structured for machine consumption with actionable error messages.",
         version: "0.1.0",
         contact: {
-          name: "QR Agent Core",
+          name: "QR for Agent",
           url: config.baseUrl,
         },
       },
@@ -191,7 +191,7 @@ export async function buildApp() {
     },
     async () => ({
       status: "ok",
-      service: "qr-agent-core",
+      service: "qr-for-agent",
       version: "0.1.0",
       timestamp: new Date().toISOString(),
     })

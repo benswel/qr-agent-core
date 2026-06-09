@@ -5,6 +5,7 @@ export const config = {
   port: parseInt(process.env.PORT || "3100", 10),
   host: process.env.HOST || "0.0.0.0",
   baseUrl: process.env.BASE_URL || "http://localhost:3100",
+  siteUrl: process.env.SITE_URL || "https://qrforagent.com",
   db: {
     url: process.env.DATABASE_URL || "./data/qr-agent.db",
   },

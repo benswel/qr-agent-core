@@ -1,12 +1,12 @@
-# QR Agent Core
+# QR for Agent
 
-[![benswel/qr-agent-core MCP server](https://glama.ai/mcp/servers/benswel/qr-agent-core/badges/score.svg)](https://glama.ai/mcp/servers/benswel/qr-agent-core)
+[![benswel/qr-for-agent-api MCP server](https://glama.ai/mcp/servers/benswel/qr-for-agent-api/badges/score.svg)](https://glama.ai/mcp/servers/benswel/qr-for-agent-api)
 
 QR-as-a-Service API built for AI agents. Create, update, and track dynamic QR codes programmatically via REST API or MCP (37 tools).
 
 QR codes point to short URLs (`/r/:shortId`) that you can retarget at any time â€” the QR image never changes, but scanning it goes to the new destination. Multi-tenant by design, with full scan analytics.
 
-**Live API:** [api.qragentcore.com](https://api.qragentcore.com) &nbsp;|&nbsp; **Site:** [qrforagent.com](https://qrforagent.com) &nbsp;|&nbsp; **MCP:** [`qr-for-agent`](https://www.npmjs.com/package/qr-for-agent)
+**Live API:** [api.qrforagent.com](https://api.qrforagent.com) &nbsp;|&nbsp; **Site:** [qrforagent.com](https://qrforagent.com) &nbsp;|&nbsp; **MCP:** [`qr-for-agent`](https://www.npmjs.com/package/qr-for-agent)
 
 ## Features
 
@@ -36,8 +36,8 @@ QR codes point to short URLs (`/r/:shortId`) that you can retarget at any time â
 ## Quick Start
 
 ```bash
-git clone https://github.com/benswel/qr-agent-core.git
-cd qr-agent-core
+git clone https://github.com/benswel/qr-for-agent-api.git
+cd qr-for-agent-api
 npm install
 npm run dev
 ```
@@ -157,7 +157,7 @@ Add to your MCP config (`claude_desktop_config.json` or `.cursor/mcp.json`):
       "args": ["-y", "qr-for-agent"],
       "env": {
         "API_KEY": "your-api-key",
-        "BASE_URL": "https://api.qragentcore.com"
+        "BASE_URL": "https://api.qrforagent.com"
       }
     }
   }

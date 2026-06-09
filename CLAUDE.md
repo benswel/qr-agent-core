@@ -1,4 +1,4 @@
-# QR Agent Core — Context for Claude
+# QR for Agent — Context for Claude
 
 ## On arrival
 
@@ -9,7 +9,7 @@
 
 ## What is this project?
 
-QR Agent Core is a **QR-as-a-Service API** built for AI agents. It lets agents create, update, and track dynamic QR codes programmatically. The QR image never changes — but its destination URL can be retargeted at any time.
+QR for Agent is a **QR-as-a-Service API** built for AI agents. It lets agents create, update, and track dynamic QR codes programmatically. The QR image never changes — but its destination URL can be retargeted at any time.
 
 **Live API:** deployed on Railway (Docker-based)
 **MCP package:** `qr-for-agent` on npm (`packages/mcp/`)

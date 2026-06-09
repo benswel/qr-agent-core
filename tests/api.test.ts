@@ -52,7 +52,7 @@ describe("Authentication", () => {
       url: "/.well-known/ai-plugin.json",
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().name_for_model).toBe("qr_agent_core");
+    expect(res.json().name_for_model).toBe("qr_for_agent");
   });
 
   it("allows documentation without auth", async () => {

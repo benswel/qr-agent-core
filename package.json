@@ -1,5 +1,5 @@
 {
-  "name": "qr-agent-core",
+  "name": "qr-for-agent-api",
   "version": "0.1.0",
   "description": "QR-as-a-Service infrastructure for AI agents — generate, manage, and track QR codes programmatically.",
   "type": "module",

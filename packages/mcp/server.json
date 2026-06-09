@@ -4,15 +4,15 @@
   "title": "QR for Agent",
   "description": "Dynamic QR codes for AI agents — custom styling, scan tracking, webhooks",
   "repository": {
-    "url": "https://github.com/benswel/qr-agent-core",
+    "url": "https://github.com/benswel/qr-for-agent-api",
     "source": "github"
   },
-  "version": "0.12.0",
+  "version": "0.12.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "qr-for-agent",
-      "version": "0.12.0",
+      "version": "0.12.2",
       "transport": {
         "type": "stdio"
       },
@@ -25,9 +25,9 @@
         },
         {
           "name": "BASE_URL",
-          "description": "API base URL (default: https://qrforagent.com)",
+          "description": "API base URL (default: https://api.qrforagent.com)",
           "isRequired": false,
-          "default": "https://qrforagent.com"
+          "default": "https://api.qrforagent.com"
         }
       ]
     }
