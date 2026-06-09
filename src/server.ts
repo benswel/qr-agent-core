@@ -8,7 +8,7 @@ async function start() {
     await app.listen({ port: config.port, host: config.host });
     console.log(`
 ╔══════════════════════════════════════════════════╗
-║           QR Agent Core — v0.1.0                 ║
+║           QR for Agent  — v0.1.0                 ║
 ╠══════════════════════════════════════════════════╣
 ║  API:          ${config.baseUrl}/api/qr${" ".repeat(Math.max(0, 33 - `${config.baseUrl}/api/qr`.length))}║
 ║  Docs:         ${config.baseUrl}/documentation${" ".repeat(Math.max(0, 33 - `${config.baseUrl}/documentation`.length))}║

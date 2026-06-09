@@ -17,8 +17,8 @@ export async function wellKnownRoutes(app: FastifyInstance) {
     async () => {
       return {
         schema_version: "v1",
-        name_for_human: "QR Agent Core",
-        name_for_model: "qr_agent_core",
+        name_for_human: "QR for Agent",
+        name_for_model: "qr_for_agent",
         description_for_human:
           "Generate, manage, and track dynamic QR codes via API.",
         description_for_model:
@@ -28,9 +28,9 @@ export async function wellKnownRoutes(app: FastifyInstance) {
           type: "openapi",
           url: `${config.baseUrl}/documentation/json`,
         },
-        logo_url: `${config.baseUrl}/logo.png`,
-        contact_email: "support@qr-agent-core.dev",
-        legal_info_url: `${config.baseUrl}/legal`,
+        logo_url: `${config.siteUrl}/logo.png`,
+        contact_email: "support@qrforagent.com",
+        legal_info_url: `${config.siteUrl}/legal`,
       };
     }
   );
@@ -49,14 +49,14 @@ export async function wellKnownRoutes(app: FastifyInstance) {
     },
     async () => {
       return {
-        name: "qr-agent-core",
+        name: "qr-for-agent",
         version: "0.1.0",
         description:
           "MCP server for QR code generation, management, and analytics. Provides tools for creating dynamic QR codes, updating destinations, and tracking scans.",
         transport: {
           type: "stdio",
           command: "npx",
-          args: ["tsx", "src/mcp/server.ts"],
+          args: ["-y", "qr-for-agent"],
         },
       };
     }

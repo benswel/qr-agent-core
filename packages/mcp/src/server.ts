@@ -4,7 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { tools } from "./tools.js";
 
 /**
- * Standalone MCP server for QR Agent Core.
+ * Standalone MCP server for QR for Agent.
  *
  * Run with: npx qr-for-agent
  *
@@ -56,7 +56,7 @@ for (const [name, tool] of Object.entries(tools)) {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("QR Agent Core MCP server running on stdio");
+  console.error("QR for Agent MCP server running on stdio");
 }
 
 main().catch(console.error);

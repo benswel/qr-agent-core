@@ -55,8 +55,8 @@ export async function createCheckoutSession(
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: config.stripe.priceId, quantity: 1 }],
-    success_url: "https://qrforagent.com/checkout/success",
-    cancel_url: "https://qrforagent.com/checkout/cancel",
+    success_url: `${config.siteUrl}/checkout/success`,
+    cancel_url: `${config.siteUrl}/checkout/cancel`,
     metadata: { api_key_id: String(apiKeyId) },
     subscription_data: {
       metadata: { api_key_id: String(apiKeyId) },
@@ -81,7 +81,7 @@ export async function createPortalSession(
 
   const session = await stripe.billingPortal.sessions.create({
     customer: apiKey.stripeCustomerId,
-    return_url: "https://qrforagent.com/pricing",
+    return_url: `${config.siteUrl}/pricing`,
   });
 
   return { portal_url: session.url };

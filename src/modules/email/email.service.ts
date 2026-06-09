@@ -36,7 +36,7 @@ const wrapper = (content: string) => `
         <!-- Footer -->
         <tr><td style="padding:20px 40px;background-color:#fafafa;border-top:1px solid #e4e4e7;font-size:12px;color:#71717a;text-align:center">
           QR for Agent &mdash; Dynamic QR codes for AI agents<br>
-          <a href="https://qrforagent.com" style="color:#71717a">qrforagent.com</a>
+          <a href="${config.siteUrl}" style="color:#71717a">qrforagent.com</a>
         </td></tr>
       </table>
     </td></tr>
@@ -73,11 +73,11 @@ export async function sendWelcomeEmail(
     ${codeBlock(`npx qr-for-agent --api-key ${apiKey}`)}
 
     <p style="margin:0 0 8px"><strong>Or call the API directly:</strong></p>
-    ${codeBlock(`curl -X POST https://api.qrforagent.com/api/qr \\<br>&nbsp;&nbsp;-H "X-API-Key: ${apiKey}" \\<br>&nbsp;&nbsp;-H "Content-Type: application/json" \\<br>&nbsp;&nbsp;-d '{"target_url": "https://example.com"}'`)}
+    ${codeBlock(`curl -X POST ${config.baseUrl}/api/qr \\<br>&nbsp;&nbsp;-H "X-API-Key: ${apiKey}" \\<br>&nbsp;&nbsp;-H "Content-Type: application/json" \\<br>&nbsp;&nbsp;-d '{"target_url": "https://example.com"}'`)}
 
-    ${button("https://qrforagent.com/docs", "Read the docs")}
+    ${button(`${config.siteUrl}/docs`, "Read the docs")}
 
-    <p style="margin:0;color:#52525b">You're on the <strong>Free plan</strong> (10 QR codes, 1K scans/month). Need more? <a href="https://qrforagent.com/pricing" style="color:#22c55e;text-decoration:none;font-weight:500">Upgrade to Pro</a> anytime.</p>
+    <p style="margin:0;color:#52525b">You're on the <strong>Free plan</strong> (10 QR codes, 1K scans/month). Need more? <a href="${config.siteUrl}/pricing" style="color:#22c55e;text-decoration:none;font-weight:500">Upgrade to Pro</a> anytime.</p>
 
     <p style="margin:20px 0 0;color:#52525b">Happy building!<br><span style="color:#0f0f10;font-weight:500">The QR for Agent team</span></p>
   `);
@@ -105,7 +105,7 @@ export async function sendProUpgradeEmail(email: string) {
 
     <p style="margin:0 0 20px;color:#52525b">Your subscription is $19/month. You can manage your billing, download invoices, or cancel anytime from the Customer Portal.</p>
 
-    ${button("https://qrforagent.com/pricing", "Manage billing")}
+    ${button(`${config.siteUrl}/pricing`, "Manage billing")}
 
     <p style="margin:0;color:#52525b">Thanks for supporting QR for Agent!<br><span style="color:#0f0f10;font-weight:500">The QR for Agent team</span></p>
   `);
@@ -131,7 +131,7 @@ export async function sendCancellationEmail(email: string) {
 
     <p style="margin:0 0 20px;color:#52525b">If you change your mind, you can re-upgrade at any time — your data is safe.</p>
 
-    ${button("https://qrforagent.com/pricing", "Re-upgrade to Pro")}
+    ${button(`${config.siteUrl}/pricing`, "Re-upgrade to Pro")}
 
     <p style="margin:0;color:#52525b">We'd love to hear what we could improve. Just reply to this email.<br><span style="color:#0f0f10;font-weight:500">The QR for Agent team</span></p>
   `);
@@ -150,7 +150,7 @@ export async function sendPaymentFailedEmail(email: string) {
 
     <p style="margin:0 0 20px;color:#52525b">To avoid any interruption, please update your payment method:</p>
 
-    ${button("https://qrforagent.com/pricing", "Update payment method")}
+    ${button(`${config.siteUrl}/pricing`, "Update payment method")}
 
     <p style="margin:0 0 20px;color:#52525b;font-size:13px">Stripe will automatically retry the charge over the next few days. If the payment continues to fail, your account will be moved to the Free plan.</p>
 

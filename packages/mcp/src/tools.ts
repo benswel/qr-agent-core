@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiRequest } from "./api-client.js";
 
 /**
- * MCP tool definitions for QR Agent Core.
+ * MCP tool definitions for QR for Agent.
  * Each tool calls the production HTTP API.
  */
 export const tools = {
